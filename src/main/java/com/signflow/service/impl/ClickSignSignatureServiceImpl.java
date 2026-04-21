@@ -1,14 +1,11 @@
 package com.signflow.service.impl;
 
-import com.signflow.dto.clicksign.ClickSignCreateEnvelopeRequestDTO;
-import com.signflow.dto.clicksign.ClickSignSendDocumentsRequestDTO;
-import com.signflow.dto.clicksign.SignatureClickSignResponseDTO;
-import com.signflow.exception.ClickSignException;
+import com.signflow.dto.clicksign.*;
+import com.signflow.exception.clicksign.InvalidRequestException;
+import com.signflow.factory.SignatureProvider;
 import com.signflow.service.ClickSignSignatureService;
-import com.signflow.strategy.SignatureProviderStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,23 +13,60 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ClickSignSignatureServiceImpl implements ClickSignSignatureService {
 
-    @Autowired
-    private SignatureProviderStrategy signatureProviderStrategy;
+    private final SignatureProvider signatureProviderStrategy;
 
     @Override
     public SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO request) {
-        if (request == null) {
-            throw new ClickSignException("Request de criação de envelope não pode ser nulo no service");
-        }
-        log.info("Processando criação de envelope para: {}", request.getData().getAttributes().getName());
-        SignatureClickSignResponseDTO response = signatureProviderStrategy.createEnvelope(request);
-        return response;
+        return signatureProviderStrategy.createEnvelope(request);
     }
 
     @Override
-    public SignatureClickSignResponseDTO sendDocument(String envelopeId,ClickSignSendDocumentsRequestDTO request) {
-        log.info("Processando envio de documento para: {}", request.getData().getAttributes().getName());
-        SignatureClickSignResponseDTO response = signatureProviderStrategy.sendDocument(envelopeId,request);
-        return response;
+    public SignatureClickSignListResponseSignersDTO getEnvelope(String envelopeId) {
+        return signatureProviderStrategy.getEnvelope(envelopeId);
+    }
+
+    @Override
+    public SignatureClickSignSignerResponseDTO createSigner(String envelopeId, ClickSignCreateSignerRequestDTO request) {
+        return signatureProviderStrategy.createSigner(envelopeId, request);
+    }
+
+    @Override
+    public SignatureClickSignSignerResponseDTO getSigner(String envelopeId, String signerId) {
+        return signatureProviderStrategy.getSigner(envelopeId, signerId);
+    }
+
+    @Override
+    public SignatureClickSignDocumentListResponseDTO getDocuments(String envelopeId) {
+        return signatureProviderStrategy.getDocuments(envelopeId);
+    }
+
+    @Override
+    public SignatureClickSignDocumentResponseDTO createDocument(String envelopeId, ClickSignCreateDocumentDTO request) {
+        if (envelopeId == null || envelopeId.isBlank()) {
+            throw new InvalidRequestException("O envelopeId é obrigatório para criar documento.");
+        }
+        return signatureProviderStrategy.createDocument(envelopeId, request);
+    }
+
+    @Override
+    public SignatureClickSignDocumentListResponseDTO updateDocuments(String envelopeId, String id) {
+        if (envelopeId == null || envelopeId.isBlank()) {
+            throw new InvalidRequestException("O envelopeId é obrigatório para atualizar documento.");
+        }
+
+        if (id == null || id.isBlank()) {
+            throw new InvalidRequestException("O id do documento é obrigatório para atualização.");
+        }
+
+        return signatureProviderStrategy.updateDocuments(envelopeId, id);
+    }
+
+    @Override
+    public SignatureClickSignRequirementResponseDTO getRequirements(String envelopeId) {
+        if (envelopeId == null || envelopeId.isBlank()) {
+            throw new InvalidRequestException("O envelopeId é obrigatório para consultar requisitos.");
+        }
+
+        return signatureProviderStrategy.getRequirements(envelopeId);
     }
 }

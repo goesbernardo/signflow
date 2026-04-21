@@ -2,3 +2,20 @@ clicksign:
   api:
     url: https://sandbox.clicksign.com/api/v3
     token: e6acc96a-bfba-40fc-8248-62727f4f632e
+
+server:
+  forward-headers-strategy: framework
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    disable-swagger-default-url: true
+
+swagger:
+  # Configure com a URL publica da route no OpenShift para o Try it out.
+  # Exemplo: https://signflow-seu-projeto.apps.cluster.com
+  server-url: ${SWAGGER_SERVER_URL:}
