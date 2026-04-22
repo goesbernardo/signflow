@@ -7,6 +7,10 @@ public interface ClickSignSignatureService {
 
     SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO request);
 
+    SignatureClickSignGetResponseDTO getEnvelopeById(String envelopeId);
+
+    SignatureClickSignUpdateResponseDTO updateEnvelope(String envelopeId, ClickSignUpdateEnvelopeRequestDTO request);
+
     SignatureClickSignListResponseSignersDTO getEnvelope(String envelopeId);
 
     SignatureClickSignSignerResponseDTO createSigner(String envelopeId, ClickSignCreateSignerRequestDTO request);

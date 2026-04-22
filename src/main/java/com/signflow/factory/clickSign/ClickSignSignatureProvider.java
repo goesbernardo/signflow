@@ -2,13 +2,22 @@ package com.signflow.factory.clickSign;
 
 import com.signflow.client.clicksign.ClickSignIntegrationFeignClient;
 import com.signflow.dto.clicksign.*;
+import com.signflow.entity.EnvelopeEntity;
+import com.signflow.enums.ProviderSignature;
+import com.signflow.enums.Status;
 import com.signflow.exception.clicksign.ClickSignIntegrationException;
 import com.signflow.exception.clicksign.ResourceNotFoundException;
+import com.signflow.factory.ClickSignResponseFactory;
 import com.signflow.factory.SignatureProvider;
+import com.signflow.repository.ClickSignDocumentRepository;
 import feign.FeignException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -16,14 +25,40 @@ import org.springframework.stereotype.Service;
 public class ClickSignSignatureProvider implements SignatureProvider {
 
     private final ClickSignIntegrationFeignClient clickSignClient;
+    private final ClickSignDocumentRepository clickSignDocumentRepository;
+
 
     @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "createEnvelopeFallback")
     public SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO createEnvelopeRequestDTO) {
+        EnvelopeEntity clickSignDocumentEntity = new EnvelopeEntity();
         try {
-            return clickSignClient.createEnvelope(createEnvelopeRequestDTO);
-        } catch (FeignException ex) {
+            var response = clickSignClient.createEnvelope(createEnvelopeRequestDTO);
+            clickSignDocumentEntity.setStatus(Status.valueOf(Status.SUCCESS.name()));
+            clickSignDocumentEntity.setProvider(ProviderSignature.CLICKSIGN);
+            clickSignDocumentEntity.setCreated(LocalDateTime.now());
+            clickSignDocumentEntity.setExternalId(String.valueOf(response.getData().getId()));
+            clickSignDocumentEntity.setUserId(createEnvelopeRequestDTO.getId());
+            clickSignDocumentRepository.save(clickSignDocumentEntity);
+            return response;
+        }catch (FeignException ex) {
+            clickSignDocumentEntity.setStatus(Status.valueOf(Status.FAILED.name()));
+            clickSignDocumentEntity.setCreated(LocalDateTime.now());
+            clickSignDocumentEntity.setExternalId(UUID.randomUUID().toString());
+            clickSignDocumentEntity.setProvider(ProviderSignature.CLICKSIGN);
+            clickSignDocumentRepository.save(clickSignDocumentEntity);
             throw mapFeignException(ex, "Falha ao criar envelope no ClickSign.");
         }
+    }
+
+    @Override
+    public SignatureClickSignUpdateResponseDTO updateEnvelope(String envelopeId, ClickSignUpdateEnvelopeRequestDTO clickSignUpdateEnvelopeRequestDTO) {
+        return clickSignClient.updateEnvelope(envelopeId, clickSignUpdateEnvelopeRequestDTO);
+    }
+
+    @Override
+    public SignatureClickSignGetResponseDTO getEnvelopeById(String envelopeId) {
+         return clickSignClient.getEnvelope(envelopeId);
     }
 
     @Override
@@ -107,4 +142,10 @@ public class ClickSignSignatureProvider implements SignatureProvider {
         }
         return fallbackMessage;
     }
+
+    public SignatureClickSignResponseDTO createEnvelopeFallback(ClickSignCreateEnvelopeRequestDTO createEnvelopeRequestDTO) {
+        log.error("Falha ao criar envelope no ClickSign.");
+        return ClickSignResponseFactory.pendingRetry();
+    }
+
 }

@@ -14,7 +14,7 @@ import java.util.UUID;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class ClickSignCreateEnvelopeRequestDTO {
+public class ClickSignUpdateEnvelopeRequestDTO {
 
     @NotNull(message = "O campo data não pode ser null")
     @Valid

@@ -18,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("api/signatures/clicksign")
 @RequiredArgsConstructor
@@ -34,9 +36,31 @@ public class ClickSignController {
             @ApiResponse(responseCode = "502", description = "Falha de integracao com ClickSign", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
     public ResponseEntity<SignatureClickSignResponseDTO> createEnvelope(@RequestBody @Valid ClickSignCreateEnvelopeRequestDTO request) {
 
+        request.setId(UUID.randomUUID());
+
         SignatureClickSignResponseDTO response = clickSignSignatureService.createEnvelope(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
+    @PatchMapping(value = "envelopes/{envelopeId}")
+    @Operation(summary = "atualiza  envelope", description = "atualiza um envelope.")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Signatarios retornados com sucesso"), @ApiResponse(responseCode = "400", description = "EnvelopeId invalido", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Envelope nao encontrado", content = @Content(schema = @Schema(implementation = ErrorResponse.class))), @ApiResponse(responseCode = "502", description = "Falha de integracao com ClickSign", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<SignatureClickSignUpdateResponseDTO> updateEnvelope(@PathVariable String envelopeId, @RequestBody ClickSignUpdateEnvelopeRequestDTO request) {
+        SignatureClickSignUpdateResponseDTO response = clickSignSignatureService.updateEnvelope(envelopeId, request);
+        request.setId(UUID.randomUUID());
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @GetMapping(value = "envelopes/{envelopeId}")
+    @Operation(summary = "busca dados do envelope", description = "busca dados vinculados a um envelope.")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Signatarios retornados com sucesso"), @ApiResponse(responseCode = "400", description = "EnvelopeId invalido", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Envelope nao encontrado", content = @Content(schema = @Schema(implementation = ErrorResponse.class))), @ApiResponse(responseCode = "502", description = "Falha de integracao com ClickSign", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<SignatureClickSignGetResponseDTO> getEnvelopeById(@PathVariable String envelopeId){
+        SignatureClickSignGetResponseDTO responseDTO = clickSignSignatureService.getEnvelopeById(envelopeId);
+        return ResponseEntity.status(HttpStatus.OK).body(responseDTO);
+    }
+
 
     @GetMapping("/envelopes/{envelopeId}/signers")
     @Operation(summary = "Listar signatarios do envelope", description = "Retorna os signatarios vinculados a um envelope.")

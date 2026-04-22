@@ -12,11 +12,15 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @Getter
 @Setter
-public class ClickSignResponseAttributesDTO {
+public class ClickSignResponseListAttributesDTO {
 
     private String status;
     @JsonProperty("deadline_at")
     private OffsetDateTime deadlineAt;
+    @JsonProperty("created_at")
+    private OffsetDateTime createdAt;
+    @JsonProperty("updated_at")
+    private OffsetDateTime updatedAt;
 
 
 }

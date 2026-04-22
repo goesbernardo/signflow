@@ -6,6 +6,8 @@ import com.signflow.dto.clicksign.*;
 public interface SignatureProvider{
 
     SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO clickSignCreateEnvelopeRequestDTO);
+    SignatureClickSignUpdateResponseDTO updateEnvelope(String envelopeId, ClickSignUpdateEnvelopeRequestDTO clickSignUpdateEnvelopeRequestDTO);
+    SignatureClickSignGetResponseDTO getEnvelopeById(String envelopeId);
     SignatureClickSignListResponseSignersDTO getEnvelope(String envelopeId);
     SignatureClickSignSignerResponseDTO createSigner(String envelopeId, ClickSignCreateSignerRequestDTO clickSignCreateSignerRequestDTO);
     SignatureClickSignSignerResponseDTO getSigner(String envelopeId, String signerId);

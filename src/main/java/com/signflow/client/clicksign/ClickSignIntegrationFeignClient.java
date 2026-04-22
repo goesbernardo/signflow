@@ -15,6 +15,18 @@ public interface ClickSignIntegrationFeignClient {
     SignatureClickSignResponseDTO createEnvelope(@RequestBody ClickSignCreateEnvelopeRequestDTO request);
 
     /**
+     * Edita um envelope na ClickSign.
+     */
+    @PatchMapping(value = "envelopes/{envelopeId}")
+    SignatureClickSignUpdateResponseDTO updateEnvelope(@PathVariable String envelopeId, @RequestBody ClickSignUpdateEnvelopeRequestDTO request);
+
+    /**
+     * Lista um envelope na ClickSign.
+     */
+    @GetMapping(value = "envelopes/{envelopeId}")
+    SignatureClickSignGetResponseDTO getEnvelope(@PathVariable String envelopeId);
+
+    /**
      * Lista os signatarios vinculados a um envelope.
      */
     @GetMapping(value = "envelopes/{envelopeId}/signers")

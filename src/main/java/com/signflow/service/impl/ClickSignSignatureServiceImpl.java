@@ -3,6 +3,7 @@ package com.signflow.service.impl;
 import com.signflow.dto.clicksign.*;
 import com.signflow.exception.clicksign.InvalidRequestException;
 import com.signflow.factory.SignatureProvider;
+import com.signflow.repository.ClickSignDocumentRepository;
 import com.signflow.service.ClickSignSignatureService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,16 @@ public class ClickSignSignatureServiceImpl implements ClickSignSignatureService 
     @Override
     public SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO request) {
         return signatureProviderStrategy.createEnvelope(request);
+    }
+
+    @Override
+    public SignatureClickSignGetResponseDTO getEnvelopeById(String envelopeId) {
+        return signatureProviderStrategy.getEnvelopeById(envelopeId);
+    }
+
+    @Override
+    public SignatureClickSignUpdateResponseDTO updateEnvelope(String envelopeId, ClickSignUpdateEnvelopeRequestDTO request) {
+        return signatureProviderStrategy.updateEnvelope(envelopeId, request);
     }
 
     @Override
