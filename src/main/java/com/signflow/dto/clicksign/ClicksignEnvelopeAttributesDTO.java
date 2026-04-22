@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -19,7 +20,8 @@ public class ClickSignEnvelopeAttributesDTO {
     @NotNull(message = "Os atributos do envelope são obrigatórios")
     @NotEmpty(message = "campo não pode ser enviado vazio")
     private String name;
-    @JsonProperty("deadline_at")
-    private OffsetDateTime deadlineAt;
+
+
+
 
 }

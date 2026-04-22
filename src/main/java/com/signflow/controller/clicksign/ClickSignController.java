@@ -27,8 +27,7 @@ import java.util.UUID;
 @Tag(name = "ClickSign", description = "APIs de integracao com o provedor ClickSign")
 public class ClickSignController {
 
-    @Autowired
-    private ClickSignSignatureService clickSignSignatureService;
+    private final ClickSignSignatureService clickSignSignatureService;
 
     @PostMapping("/create-envelope")
     @Operation(summary = "Criar envelope", description = "Cria um novo envelope no ClickSign.")
