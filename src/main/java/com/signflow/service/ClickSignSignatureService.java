@@ -1,9 +1,13 @@
 package com.signflow.service;
 
+import com.signflow.dto.ClickSignWebhookRequestDTO;
+import com.signflow.dto.ClickSignWebhookResponseDTO;
 import com.signflow.dto.clicksign.*;
 
 
 public interface ClickSignSignatureService {
+
+    ClickSignWebhookResponseDTO createWebhook(ClickSignWebhookRequestDTO request);
 
     SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO request);
 
@@ -24,6 +28,9 @@ public interface ClickSignSignatureService {
     SignatureClickSignDocumentListResponseDTO updateDocuments(String envelopeId, String id);
 
     SignatureClickSignRequirementResponseDTO getRequirements(String envelopeId);
+
+    SignatureClickSignRequirementResponseDTO createRequirements(String envelopeId, ClickSignCreateRequestQualifierAttributesDTO request);
+
 
 
 

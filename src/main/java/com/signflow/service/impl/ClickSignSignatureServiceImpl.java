@@ -1,5 +1,7 @@
 package com.signflow.service.impl;
 
+import com.signflow.dto.ClickSignWebhookRequestDTO;
+import com.signflow.dto.ClickSignWebhookResponseDTO;
 import com.signflow.dto.clicksign.*;
 import com.signflow.exception.clicksign.InvalidRequestException;
 import com.signflow.factory.SignatureProvider;
@@ -15,6 +17,11 @@ import org.springframework.stereotype.Service;
 public class ClickSignSignatureServiceImpl implements ClickSignSignatureService {
 
     private final SignatureProvider signatureProviderStrategy;
+
+    @Override
+    public ClickSignWebhookResponseDTO createWebhook(ClickSignWebhookRequestDTO request) {
+        return signatureProviderStrategy.createWebhook(request);
+    }
 
     @Override
     public SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO request) {
@@ -79,5 +86,10 @@ public class ClickSignSignatureServiceImpl implements ClickSignSignatureService 
         }
 
         return signatureProviderStrategy.getRequirements(envelopeId);
+    }
+
+    @Override
+    public SignatureClickSignRequirementResponseDTO createRequirements(String envelopeId, ClickSignCreateRequestQualifierAttributesDTO request) {
+        return signatureProviderStrategy.createRequirements(envelopeId, request);
     }
 }

@@ -1,6 +1,8 @@
 package com.signflow.factory.clickSign;
 
 import com.signflow.client.clicksign.ClickSignIntegrationFeignClient;
+import com.signflow.dto.ClickSignWebhookRequestDTO;
+import com.signflow.dto.ClickSignWebhookResponseDTO;
 import com.signflow.dto.clicksign.*;
 import com.signflow.entity.EnvelopeEntity;
 import com.signflow.enums.ProviderSignature;
@@ -17,9 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +28,11 @@ public class ClickSignSignatureProvider implements SignatureProvider {
     private final ClickSignIntegrationFeignClient clickSignClient;
     private final ClickSignDocumentRepository clickSignDocumentRepository;
 
+
+    @Override
+    public ClickSignWebhookResponseDTO createWebhook(ClickSignWebhookRequestDTO clickSignWebhookRequestDTO) {
+        return clickSignClient.createWebhook(clickSignWebhookRequestDTO);
+    }
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "createEnvelopeFallback")
@@ -119,6 +123,15 @@ public class ClickSignSignatureProvider implements SignatureProvider {
             return clickSignClient.getRequirements(envelopeId);
         } catch (FeignException ex) {
             throw mapFeignException(ex, "Falha ao consultar requisitos do envelope no ClickSign.");
+        }
+    }
+
+    @Override
+    public SignatureClickSignRequirementResponseDTO createRequirements(String envelopeId, ClickSignCreateRequestQualifierAttributesDTO request) {
+        try {
+            return clickSignClient.createRequirements(envelopeId, request);
+        }catch (FeignException ex) {
+            throw mapFeignException(ex, "Falha ao criar requisitos do requerimento no ClickSign.");
         }
     }
 

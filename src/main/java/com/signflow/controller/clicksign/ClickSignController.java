@@ -1,8 +1,10 @@
 package com.signflow.controller.clicksign;
 
+import com.signflow.dto.ClickSignWebhookRequestDTO;
+import com.signflow.dto.ClickSignWebhookResponseDTO;
 import com.signflow.dto.clicksign.*;
-import com.signflow.exception.clicksign.InvalidRequestException;
 import com.signflow.exception.clicksign.ErrorResponse;
+import com.signflow.exception.clicksign.InvalidRequestException;
 import com.signflow.service.ClickSignSignatureService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,7 +15,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,21 @@ import java.util.UUID;
 public class ClickSignController {
 
     private final ClickSignSignatureService clickSignSignatureService;
+
+    @GetMapping("/webhook/clicksign")
+    public ResponseEntity<Void> receiveWebhook(@RequestBody(required = false) String payload) {
+        log.info("Webhook recebido da Clicksign: {}", payload);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/create-webhook")
+    @Operation(summary = "Criar webhooks", description = "Cria um novo webhook no ClickSign.")
+    @ApiResponses(value = {@ApiResponse(responseCode = "201", description = "webhook criado com sucesso"), @ApiResponse(responseCode = "400", description = "Requisicao invalida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Falha de integracao com ClickSign", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<ClickSignWebhookResponseDTO> createWebhook(@RequestBody @Valid ClickSignWebhookRequestDTO request) {
+        ClickSignWebhookResponseDTO response = clickSignSignatureService.createWebhook(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 
     @PostMapping("/create-envelope")
     @Operation(summary = "Criar envelope", description = "Cria um novo envelope no ClickSign.")
@@ -132,7 +148,7 @@ public class ClickSignController {
     }
 
     @GetMapping("envelopes/{envelopeId}/requirements")
-    @Operation(summary = "Consultar requisitos do envelope", description = "Retorna os requisitos configurados para um envelope.")
+    @Operation(summary = "Consultar requisitos do requerimento", description = "Retorna os requisitos configurados para um requerimento.")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Requisitos retornados com sucesso"), @ApiResponse(responseCode = "400", description = "EnvelopeId invalido", content = @Content(schema = @Schema(implementation = ErrorResponse.class))), @ApiResponse(responseCode = "404", description = "Envelope nao encontrado", content = @Content(schema = @Schema(implementation = ErrorResponse.class))), @ApiResponse(responseCode = "502", description = "Falha de integracao com ClickSign", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
     public ResponseEntity<SignatureClickSignRequirementResponseDTO> getRequirements(@PathVariable String envelopeId) {
 
@@ -143,5 +159,14 @@ public class ClickSignController {
         SignatureClickSignRequirementResponseDTO response = clickSignSignatureService.getRequirements(envelopeId);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
+
+    @PostMapping("envelopes/{envelopeId}/requirements")
+    @Operation(summary = "criar requisitos do requerimento", description = "cria requisitos de um requerimento na clicksign")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Requisitos retornados com sucesso"), @ApiResponse(responseCode = "400", description = "EnvelopeId invalido", content = @Content(schema = @Schema(implementation = ErrorResponse.class))), @ApiResponse(responseCode = "404", description = "Envelope nao encontrado", content = @Content(schema = @Schema(implementation = ErrorResponse.class))), @ApiResponse(responseCode = "502", description = "Falha de integracao com ClickSign", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<SignatureClickSignRequirementResponseDTO> createRequirements(@PathVariable String envelopeId, @RequestBody ClickSignCreateRequestQualifierAttributesDTO request) {
+        SignatureClickSignRequirementResponseDTO response = clickSignSignatureService.createRequirements(envelopeId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
 
 }

@@ -1,6 +1,8 @@
 package com.signflow.client.clicksign;
 
 import com.signflow.config.feign.ClickSignFeignConfig;
+import com.signflow.dto.ClickSignWebhookRequestDTO;
+import com.signflow.dto.ClickSignWebhookResponseDTO;
 import com.signflow.dto.clicksign.*;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
@@ -9,6 +11,12 @@ import org.springframework.web.bind.annotation.*;
 public interface ClickSignIntegrationFeignClient {
 
     /**
+     * Cria um novo webhooks na ClickSign.
+     */
+    @PostMapping("webhooks")
+    ClickSignWebhookResponseDTO createWebhook(@RequestBody ClickSignWebhookRequestDTO request);
+    /**
+     *
      * Cria um novo envelope na ClickSign.
      */
     @PostMapping(value = "envelopes")
@@ -72,5 +80,5 @@ public interface ClickSignIntegrationFeignClient {
      * Cria um requisito do tipo qualificador para o envelope.
      */
     @PostMapping(value = "envelopes/{envelopeId}/requirements")
-    SignatureClickSignRequirementResponseDTO createRequirementsQualifier(@PathVariable String envelopeId, @RequestBody ClickSignCreateRequestQualifierAttributesDTO request);
+    SignatureClickSignRequirementResponseDTO createRequirements(@PathVariable String envelopeId, @RequestBody ClickSignCreateRequestQualifierAttributesDTO request);
 }

@@ -6,6 +6,7 @@ import lombok.Data;
 public class SignatureClickSignRequirementDataDTO extends BaseDataDTO {
 
     private SignatureClickSignRequirementAttributesResponseDTO attributes;
+    private SignatureClickSignRequirementRelationshipsDTO relationships;
 
 
 }

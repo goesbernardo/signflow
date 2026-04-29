@@ -3,8 +3,7 @@ package com.signflow.dto.clicksign;
 import lombok.Data;
 
 @Data
-public class SingleDataResponseDTO<T> {
+public class SignerDTO {
 
-    private T data;
-
+    private DataIdDTO data;
 }

@@ -26,6 +26,6 @@ public class EnvelopeEntity {
     @Enumerated(EnumType.STRING)
     private Status status;
     private LocalDateTime created;
-    @Column(name = "external_id")
+    @Column(name = "external_id",unique = true)
     private String externalId;
 }
