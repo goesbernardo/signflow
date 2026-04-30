@@ -16,6 +16,18 @@ springdoc:
     disable-swagger-default-url: true
 
 swagger:
-  # Configure com a URL publica da route no OpenShift para o Try it out.
-  # Exemplo: https://signflow-seu-projeto.apps.cluster.com
   server-url: ${SWAGGER_SERVER_URL:}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/signflow
+    username: root
+    password: root
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

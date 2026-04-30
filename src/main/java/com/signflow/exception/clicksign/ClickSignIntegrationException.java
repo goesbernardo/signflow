@@ -1,12 +1,24 @@
 package com.signflow.exception.clicksign;
 
-public class ClickSignIntegrationException extends ClickSignException {
+import lombok.Getter;
 
-    public ClickSignIntegrationException(String message) {
+import java.util.List;
+
+@Getter
+public class ClickSignIntegrationException extends RuntimeException {
+
+    private final List<CLickSignError> errors;
+    private final String rawResponse;
+
+    public ClickSignIntegrationException(String message, List<CLickSignError> errors, String rawResponse) {
         super(message);
+        this.errors = errors;
+        this.rawResponse = rawResponse;
     }
 
-    public ClickSignIntegrationException(String message, Throwable cause) {
+    public ClickSignIntegrationException(String message, List<CLickSignError> errors, String rawResponse, Throwable cause) {
         super(message, cause);
+        this.errors = errors;
+        this.rawResponse = rawResponse;
     }
 }

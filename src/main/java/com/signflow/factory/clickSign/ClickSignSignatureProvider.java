@@ -1,14 +1,19 @@
 package com.signflow.factory.clickSign;
 
 import com.signflow.client.clicksign.ClickSignIntegrationFeignClient;
-import com.signflow.dto.clicksign.*;
-import com.signflow.exception.clicksign.ClickSignIntegrationException;
-import com.signflow.exception.clicksign.ResourceNotFoundException;
+import com.signflow.dto.clicksign.request.*;
+import com.signflow.dto.clicksign.response.SignatureClickSignResponseDTO;
+import com.signflow.entity.EnvelopeEntity;
+import com.signflow.enums.ProviderSignature;
+import com.signflow.enums.Status;
 import com.signflow.factory.SignatureProvider;
-import feign.FeignException;
+import com.signflow.repository.ClickSignDocumentRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -16,95 +21,86 @@ import org.springframework.stereotype.Service;
 public class ClickSignSignatureProvider implements SignatureProvider {
 
     private final ClickSignIntegrationFeignClient clickSignClient;
+    private final ClickSignDocumentRepository clickSignDocumentRepository;
+
 
     @Override
-    public SignatureClickSignResponseDTO createEnvelope(ClickSignCreateEnvelopeRequestDTO createEnvelopeRequestDTO) {
-        try {
-            return clickSignClient.createEnvelope(createEnvelopeRequestDTO);
-        } catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao criar envelope no ClickSign.");
-        }
-    }
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "createEnvelopeFallback")
+    public SignatureClickSignResponseDTO createEnvelope(ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> body) {
+        EnvelopeEntity envelopeEntity = new EnvelopeEntity();
+        envelopeEntity.setStatus(Status.PROCESSING);
+        envelopeEntity.setProvider(ProviderSignature.CLICKSIGN);
+        envelopeEntity.setCreated(LocalDateTime.now());
 
-    @Override
-    public SignatureClickSignListResponseSignersDTO getEnvelope(String envelopeId) {
-        try {
-            return clickSignClient.getEnvelopeSigners(envelopeId);
-        } catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao consultar signatários do envelope no ClickSign.");
-        }
-    }
+        envelopeEntity = clickSignDocumentRepository.save(envelopeEntity);
 
-    @Override
-    public SignatureClickSignSignerResponseDTO createSigner(String envelopeId, ClickSignCreateSignerRequestDTO clickSignCreateSignerRequestDTO) {
-        try {
-            return clickSignClient.createSigner(envelopeId,clickSignCreateSignerRequestDTO);
-        } catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao criar signatário no ClickSign.");
-        }
+
+        var response = clickSignClient.createEnvelope(body);
+        envelopeEntity.setStatus(Status.SUCCESS);
+        envelopeEntity.setExternalId(response.getData().getId());
+    //    envelopeEntity.setUserId(createEnvelopeRequestDTO.getId());
+        clickSignDocumentRepository.save(envelopeEntity);
+        return response;
     }
 
     @Override
-    public SignatureClickSignSignerResponseDTO getSigner(String envelopeId, String signerId) {
-        try {
-            return clickSignClient.getSigner(envelopeId,signerId);
-        } catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao consultar signatário no ClickSign.");
-        }
+    public SignatureClickSignResponseDTO updateEnvelope(String envelopeId, ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> body) {
+        return clickSignClient.updateEnvelope(envelopeId, body);
     }
 
     @Override
-    public SignatureClickSignDocumentListResponseDTO getDocuments(String envelopeId) {
-        try {
-            return clickSignClient.getDocuments(envelopeId);
-        } catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao consultar documentos do envelope no ClickSign.");
-        }
+    public SignatureClickSignResponseDTO getEnvelopeById(String envelopeId) {
+        return clickSignClient.getEnvelope(envelopeId);
     }
 
     @Override
-    public SignatureClickSignDocumentResponseDTO createDocument(String envelopeId, ClickSignCreateDocumentDTO request) {
-        try {
-            return clickSignClient.createDocument(envelopeId, request);
-        } catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao criar documento por upload no ClickSign.");
+    public SignatureClickSignResponseDTO getEnvelope(String envelopeId) {
+        return clickSignClient.getEnvelopeSigners(envelopeId);
         }
+
+
+    @Override
+    public SignatureClickSignResponseDTO createSigner(String envelopeId, ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignCreateSignAttributesDTO,Void>> request) {
+        return clickSignClient.createSigner(envelopeId, request);
+        }
+
+
+    @Override
+    public SignatureClickSignResponseDTO getSigner(String envelopeId, String signerId) {
+        return clickSignClient.getSigner(envelopeId, signerId);
+        }
+
+
+    @Override
+    public SignatureClickSignResponseDTO getDocuments(String envelopeId) {
+        return clickSignClient.getDocuments(envelopeId);
+        }
+
+
+    @Override
+    public SignatureClickSignResponseDTO createDocument(String envelopeId,ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignCreateDocumentAttributesDTO,Void>> request) {
+        return clickSignClient.createDocument(envelopeId, request);
+        }
+
+    @Override
+    public SignatureClickSignResponseDTO updateDocuments(String envelopeId, String id) {
+        return clickSignClient.updateDocuments(envelopeId, id);
     }
 
     @Override
-    public SignatureClickSignDocumentListResponseDTO updateDocuments(String envelopeId, String id) {
-        try {
-            return clickSignClient.updateDocuments(envelopeId,id);
-        }catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao atualizar documentos do envelope no ClickSign.");
+    public SignatureClickSignResponseDTO getRequirements(String envelopeId) {
+        return clickSignClient.getRequirements(envelopeId);
         }
+
+
+    @Override
+    public SignatureClickSignResponseDTO createRequirements(String envelopeId, ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignRequirementsAttributesDTO,ClickSignRequirementsRelationshipDTO>> request) {
+        return clickSignClient.createRequirements(envelopeId, request);
     }
 
     @Override
-    public SignatureClickSignRequirementResponseDTO getRequirements(String envelopeId) {
-        try {
-            return clickSignClient.getRequirements(envelopeId);
-        }catch (FeignException ex) {
-            throw mapFeignException(ex, "Falha ao consultar requisitos do envelope no ClickSign.");
-        }
+    public SignatureClickSignResponseDTO activateEnvelope(String envelopeId, ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClicksignActivateAttributesDTO, Void>> request) {
+        return clickSignClient.activateEnvelope(envelopeId, request);
     }
 
-    private RuntimeException mapFeignException(FeignException ex, String fallbackMessage) {
-        if (ex.status() == 404) {
-            return new ResourceNotFoundException(extractMessage(ex, "Recurso não encontrado no ClickSign."));
-        }
-
-        return new ClickSignIntegrationException(extractMessage(ex, fallbackMessage), ex);
-    }
-
-    private String extractMessage(FeignException ex, String fallbackMessage) {
-        String responseBody = ex.contentUTF8();
-        if (responseBody != null && !responseBody.isBlank()) {
-            return responseBody;
-        }
-        if (ex.getMessage() != null && !ex.getMessage().isBlank()) {
-            return ex.getMessage();
-        }
-        return fallbackMessage;
-    }
 }
