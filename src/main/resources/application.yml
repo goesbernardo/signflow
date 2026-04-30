@@ -1,7 +1,16 @@
-clicksign:
-  api:
-    url: https://sandbox.clicksign.com/api/v3
-    token: e6acc96a-bfba-40fc-8248-62727f4f632e
+signflow:
+  providers:
+    clicksign:
+      enabled: true
+      base-url: ${CLICKSIGN_URL:https://sandbox.clicksign.com/api/v3}
+      token: ${CLICKSIGN_API_TOKEN:e6acc96a-bfba-40fc-8248-62727f4f632e}
+      webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET:}
+    docusign:
+      enabled: false
+      base-url: ${DOCUSIGN_URL:}
+    zapsign:
+      enabled: false
+      base-url: ${ZAPSIGN_URL:}
 
 server:
   forward-headers-strategy: framework
@@ -31,3 +40,14 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+resilience4j:
+  circuitbreaker:
+    instances:
+      clicksign-circuit-breaker:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
