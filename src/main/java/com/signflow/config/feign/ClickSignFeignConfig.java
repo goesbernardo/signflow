@@ -1,8 +1,10 @@
 package com.signflow.config.feign;
 
+import com.signflow.exception.clicksign.ClickSignErrorDecoder;
 import feign.Logger;
 import feign.RequestInterceptor;
 import feign.codec.Decoder;
+import feign.codec.ErrorDecoder;
 import feign.optionals.OptionalDecoder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
@@ -37,6 +39,11 @@ public class ClickSignFeignConfig {
         converter.setSupportedMediaTypes(List.of(MediaType.APPLICATION_JSON, MediaType.valueOf("application/vnd.api+json")));
 
         return new ResponseEntityDecoder(new OptionalDecoder(new SpringDecoder(() -> new HttpMessageConverters(converter))));
+    }
+
+    @Bean
+    public ErrorDecoder errorDecoder(){
+        return new ClickSignErrorDecoder();
     }
 
     @Bean
