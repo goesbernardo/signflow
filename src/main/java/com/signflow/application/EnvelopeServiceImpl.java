@@ -12,10 +12,10 @@ import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
-import com.signflow.persistence.EnvelopeEntity;
-import com.signflow.persistence.SignatureRepository;
+import com.signflow.persistence.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +28,9 @@ public class EnvelopeServiceImpl implements EnvelopeService {
 
     private final SignatureGatewayRegistry registry;
     private final SignatureRepository repository;
+    private final SignerRepository signerRepository;
+    private final DocumentRepository documentRepository;
+    private final EnvelopeEventRepository eventRepository;
 
     @Override
     @Transactional
@@ -38,13 +41,18 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         entity.setStatus(Status.PROCESSING);
         entity.setProvider(provider);
         entity.setCreated(LocalDateTime.now());
+        
+        String currentPrincipalName = SecurityContextHolder.getContext().getAuthentication().getName();
+        entity.setUserId(currentPrincipalName);
+        
         entity = repository.save(entity);
+        saveEvent(entity, null, Status.PROCESSING, "API");
 
         try {
             ESignatureGateway gateway = registry.get(provider);
             Envelope envelope = gateway.createEnvelope(cmd);
 
-            entity.setStatus(Status.SUCCESS);
+            updateStatus(entity, Status.SUCCESS, "API");
             entity.setExternalId(envelope.getExternalId());
             repository.save(entity);
 
@@ -52,10 +60,48 @@ public class EnvelopeServiceImpl implements EnvelopeService {
             return envelope;
         } catch (Exception e) {
             log.error("Erro ao criar envelope no provedor {}", provider, e);
-            entity.setStatus(Status.FAILED);
-            repository.save(entity);
+            updateStatus(entity, Status.FAILED, "API");
             throw e;
         }
+    }
+
+    @Override
+    @Transactional
+    public Signer addSigner(String externalId, AddSignerCommand cmd, ProviderSignature provider) {
+        log.info("Adicionando signatário ao envelope {} no provedor {}", externalId, provider);
+        ESignatureGateway gateway = registry.get(provider);
+        Signer signer = gateway.addSigner(externalId, cmd);
+        
+        repository.findByExternalId(externalId).ifPresent(envelope -> {
+            SignerEntity signerEntity = new SignerEntity();
+            signerEntity.setExternalId(signer.getExternalId());
+            signerEntity.setName(signer.getName());
+            signerEntity.setEmail(cmd.getEmail());
+            signerEntity.setEnvelope(envelope);
+            signerEntity.setCreated(LocalDateTime.now());
+            signerRepository.save(signerEntity);
+        });
+        
+        return signer;
+    }
+
+    @Override
+    @Transactional
+    public Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider) {
+        log.info("Adicionando documento ao envelope {} no provedor {}", externalId, provider);
+        ESignatureGateway gateway = registry.get(provider);
+        Document document = gateway.addDocument(externalId, cmd);
+        
+        repository.findByExternalId(externalId).ifPresent(envelope -> {
+            DocumentEntity documentEntity = new DocumentEntity();
+            documentEntity.setExternalId(document.getExternalId());
+            documentEntity.setFilename(cmd.getFilename());
+            documentEntity.setEnvelope(envelope);
+            documentEntity.setCreated(LocalDateTime.now());
+            documentRepository.save(documentEntity);
+        });
+        
+        return document;
     }
 
     @Override
@@ -72,20 +118,6 @@ public class EnvelopeServiceImpl implements EnvelopeService {
     }
 
     @Override
-    public Signer addSigner(String externalId, AddSignerCommand cmd, ProviderSignature provider) {
-        log.info("Adicionando signatário ao envelope {} no provedor {}", externalId, provider);
-        ESignatureGateway gateway = registry.get(provider);
-        return gateway.addSigner(externalId, cmd);
-    }
-
-    @Override
-    public Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider) {
-        log.info("Adicionando documento ao envelope {} no provedor {}", externalId, provider);
-        ESignatureGateway gateway = registry.get(provider);
-        return gateway.addDocument(externalId, cmd);
-    }
-
-    @Override
     public void addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider) {
         log.info("Adicionando requisito ao envelope {} no provedor {}", externalId, provider);
         ESignatureGateway gateway = registry.get(provider);
@@ -93,9 +125,33 @@ public class EnvelopeServiceImpl implements EnvelopeService {
     }
 
     @Override
+    @Transactional
     public void activateEnvelope(String externalId, ProviderSignature provider) {
         log.info("Ativando envelope {} no provedor {}", externalId, provider);
         ESignatureGateway gateway = registry.get(provider);
         gateway.activateEnvelope(externalId);
+        
+        repository.findByExternalId(externalId).ifPresent(envelope -> {
+            updateStatus(envelope, Status.ACTIVE, "API");
+        });
+    }
+
+    private void updateStatus(EnvelopeEntity entity, Status newStatus, String source) {
+        Status previousStatus = entity.getStatus();
+        if (previousStatus != newStatus) {
+            entity.setStatus(newStatus);
+            repository.save(entity);
+            saveEvent(entity, previousStatus, newStatus, source);
+        }
+    }
+
+    private void saveEvent(EnvelopeEntity entity, Status previous, Status next, String source) {
+        EnvelopeEventEntity event = new EnvelopeEventEntity();
+        event.setEnvelope(entity);
+        event.setPreviousStatus(previous);
+        event.setNewStatus(next);
+        event.setSource(source);
+        event.setOccurredAt(LocalDateTime.now());
+        eventRepository.save(event);
     }
 }

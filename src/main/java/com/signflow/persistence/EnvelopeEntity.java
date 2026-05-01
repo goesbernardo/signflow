@@ -20,7 +20,8 @@ public class EnvelopeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
-    private UUID userId;
+    @Column(name = "user_id")
+    private String userId;
     @Enumerated(EnumType.STRING)
     private ProviderSignature provider;
     @Enumerated(EnumType.STRING)
@@ -28,4 +29,13 @@ public class EnvelopeEntity {
     private LocalDateTime created;
     @Column(name = "external_id",unique = true)
     private String externalId;
+
+    @OneToMany(mappedBy = "envelope", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<SignerEntity> signers;
+
+    @OneToMany(mappedBy = "envelope", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<DocumentEntity> documents;
+
+    @OneToMany(mappedBy = "envelope", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<EnvelopeEventEntity> events;
 }
