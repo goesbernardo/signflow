@@ -7,10 +7,14 @@ import com.signflow.domain.command.CreateEnvelopeCommand;
 import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
+import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 
+import com.signflow.enums.Status;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface EnvelopeService {
@@ -19,7 +23,8 @@ public interface EnvelopeService {
     Envelope getEnvelope(String externalId, ProviderSignature provider);
     Signer addSigner(String externalId, AddSignerCommand cmd, ProviderSignature provider);
     Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider);
-    void addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider);
+    Requirement addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider);
     void activateEnvelope(String externalId, ProviderSignature provider);
     List<EnvelopeTimelineResponse> getTimeline(String externalId);
+    Page<Envelope> listEnvelopes(Status status, Pageable pageable);
 }

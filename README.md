@@ -46,6 +46,8 @@ As variáveis de configuração são organizadas por provedor. Exemplo de config
 | Variável | Descrição | Valor Padrão |
 |----------|-----------|--------------|
 | `JWT_SECRET` | Chave secreta para geração do JWT | (Obrigatório via ENV) |
+| `ADMIN_USERNAME` | Username do administrador padrão (Migration) | `admin` |
+| `ADMIN_PASSWORD` | Senha BCrypt do administrador padrão (Migration) | `admin123` (Criptografado) |
 | `CLICKSIGN_URL` | URL da API da ClickSign | `https://sandbox.clicksign.com/api/v3` |
 | `CLICKSIGN_API_TOKEN` | Token de acesso da ClickSign | (Token de Sandbox) |
 

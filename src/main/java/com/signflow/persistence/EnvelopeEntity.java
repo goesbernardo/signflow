@@ -22,6 +22,7 @@ public class EnvelopeEntity {
     private Long id;
     @Column(name = "user_id")
     private String userId;
+    private String name;
     @Enumerated(EnumType.STRING)
     private ProviderSignature provider;
     @Enumerated(EnumType.STRING)

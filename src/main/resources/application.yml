@@ -34,15 +34,18 @@ spring:
     password: root
     driver-class-name: org.postgresql.Driver
 
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    placeholders:
+      admin_username: ${ADMIN_USERNAME:admin}
+      admin_password: ${ADMIN_PASSWORD:$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.SZXkN.G}
   jpa:
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
 resilience4j:
   circuitbreaker:
     instances:
@@ -71,3 +74,20 @@ security:
   jwt:
     secret: ${JWT_SECRET}
     expiration: 86400000 # 24 hours
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId}] [userId=%X{userId}]"
