@@ -13,6 +13,7 @@ import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
 import com.signflow.persistence.*;
+import com.signflow.api.dto.EnvelopeTimelineResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -134,6 +137,20 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         repository.findByExternalId(externalId).ifPresent(envelope -> {
             updateStatus(envelope, Status.ACTIVE, "API");
         });
+    }
+
+    @Override
+    public List<EnvelopeTimelineResponse> getTimeline(String externalId) {
+        log.info("Buscando timeline para o envelope {}", externalId);
+        return eventRepository.findAllByEnvelopeExternalIdOrderByOccurredAtAsc(externalId)
+                .stream()
+                .map(event -> EnvelopeTimelineResponse.builder()
+                        .previousStatus(event.getPreviousStatus())
+                        .newStatus(event.getNewStatus())
+                        .source(event.getSource())
+                        .occurredAt(event.getOccurredAt())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private void updateStatus(EnvelopeEntity entity, Status newStatus, String source) {

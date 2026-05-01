@@ -1,6 +1,8 @@
 # SignFlow
 
-O **SignFlow** é uma API de gerenciamento de assinaturas eletrônicas, projetada com foco em resiliência, segurança e extensibilidade. Atualmente, oferece integração completa com o provedor **ClickSign**.
+O **SignFlow** é uma API de gerenciamento de assinaturas eletrônicas, projetada com foco em resiliência, segurança e extensibilidade. O sistema é **agnóstico a provedores**, permitindo a integração com diversos serviços de assinatura através de uma interface unificada.
+
+
 
 ## 🚀 Tecnologias
 
@@ -39,13 +41,15 @@ A API está protegida por autenticação JWT.
 - Maven (ou utilize o `./mvnw` incluso)
 
 ### Variáveis de Ambiente
-As seguintes variáveis podem ser configuradas no `application.yml` ou passadas via sistema:
+As variáveis de configuração são organizadas por provedor. Exemplo de configuração para a ClickSign e JWT:
 
 | Variável | Descrição | Valor Padrão |
 |----------|-----------|--------------|
+| `JWT_SECRET` | Chave secreta para geração do JWT | (Obrigatório via ENV) |
 | `CLICKSIGN_URL` | URL da API da ClickSign | `https://sandbox.clicksign.com/api/v3` |
-| `CLICKSIGN_API_TOKEN` | Token de acesso da ClickSign | (Token de Sandbox configurado) |
-| `JWT_SECRET` | Chave secreta para geração do JWT | (Chave fixa para desenvolvimento) |
+| `CLICKSIGN_API_TOKEN` | Token de acesso da ClickSign | (Token de Sandbox) |
+
+*Nota: Para novos provedores, siga o padrão `NOMEPROVEDOR_URL` e `NOMEPROVEDOR_TOKEN`.*
 
 ### Execução com Docker
 O projeto inclui um `docker-compose.yaml` para subir o banco de dados PostgreSQL:
@@ -71,7 +75,7 @@ A documentação interativa da API está disponível em:
 - `POST /api/v1/auth/login`: Realiza login e retorna o token JWT.
 
 ### Assinaturas (Signature)
-Todos os endpoints abaixo exigem o header `provider` (ex: `CLICKSIGN`) e o token `Bearer`.
+A API utiliza o header `provider` para rotear as chamadas para o adaptador correspondente (ex: `CLICKSIGN`). Todos os endpoints abaixo exigem esse header e o token `Bearer`.
 
 - `POST /api/v1/signatures`: Cria um novo envelope.
 - `GET /api/v1/signatures/{externalId}`: Busca detalhes de um envelope.
@@ -80,9 +84,10 @@ Todos os endpoints abaixo exigem o header `provider` (ex: `CLICKSIGN`) e o token
 - `POST /api/v1/signatures/{externalId}/documents`: Adiciona um documento.
 - `POST /api/v1/signatures/{externalId}/requirements`: Vincula signatário a um documento.
 - `PATCH /api/v1/signatures/{externalId}/activate`: Ativa o envelope para assinatura.
+- `GET /api/v1/signatures/{externalId}/timeline`: Retorna a trilha de auditoria (eventos) do envelope.
 
 ## 🛡️ Resiliência
-A integração com provedores externos é protegida por um **Circuit Breaker** (Resilience4j). Caso o provedor (ex: ClickSign) esteja instável, a aplicação aciona métodos de fallback para evitar falhas em cascata, retornando mensagens amigáveis de erro de integração.
+A integração com provedores externos é protegida por um **Circuit Breaker** (Resilience4j). Caso um provedor (ex: ClickSign, Docusign, etc.) esteja instável, a aplicação aciona métodos de fallback para evitar falhas em cascata, retornando mensagens amigáveis de erro de integração. Cada provedor possui sua própria configuração de circuit breaker, garantindo isolamento entre falhas.
 
 ## 🗄️ Persistência e Auditoria
 A aplicação mantém um registro local de:
