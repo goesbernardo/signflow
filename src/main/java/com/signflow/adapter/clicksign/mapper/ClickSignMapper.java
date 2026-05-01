@@ -7,10 +7,21 @@ import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.Status;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
+@Slf4j
 public class ClickSignMapper {
+
+    private static final Map<String, Status> STATUS_MAP = Map.of(
+            "running", Status.ACTIVE,
+            "completed", Status.CLOSED,
+            "canceled", Status.CANCELED,
+            "draft", Status.DRAFT
+    );
 
     public Envelope toEnvelopeDomain(SignatureClickSignResponseDTO response) {
         if (response == null || response.getData() == null) {
@@ -21,10 +32,12 @@ public class ClickSignMapper {
 
         Status domainStatus = null;
         if (attributes != null && attributes.getStatus() != null) {
-            try {
-                domainStatus = Status.valueOf(attributes.getStatus().toUpperCase());
-            } catch (IllegalArgumentException e) {
-                domainStatus = Status.PENDING; // Fallback seguro
+            String clickSignStatus = attributes.getStatus().toLowerCase();
+            domainStatus = STATUS_MAP.get(clickSignStatus);
+            
+            if (domainStatus == null) {
+                log.warn("Status desconhecido recebido da ClickSign: {}. Mapeando para PENDING.", clickSignStatus);
+                domainStatus = Status.PENDING;
             }
         }
 

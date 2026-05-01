@@ -1,189 +1,91 @@
-# 📄 SignFlow
+# SignFlow
 
-## 🚀 Sobre o projeto
+O **SignFlow** é uma API de gerenciamento de assinaturas eletrônicas, projetada com foco em resiliência, segurança e extensibilidade. Atualmente, oferece integração completa com o provedor **ClickSign**.
 
-O **SignFlow** é uma API desenvolvida em **Spring Boot** para integração com a plataforma de assinaturas digitais Clicksign, permitindo gerenciar fluxos de assinatura eletrônica de forma automatizada.
+## 🚀 Tecnologias
 
-A aplicação expõe endpoints REST documentados via Swagger para facilitar integração com outros sistemas.
+- **Java 17** e **Spring Boot 3.3.4**
+- **Spring Security** com **JWT (JSON Web Token)**
+- **Spring Data JPA** com **PostgreSQL**
+- **OpenFeign** para integrações de API
+- **Resilience4j** (Circuit Breaker) para tolerância a falhas
+- **SpringDoc OpenAPI** (Swagger) para documentação
+- **Docker** e **Docker Compose**
 
----
+## 🏗️ Arquitetura
 
-## 🧱 Tecnologias utilizadas
-
-* Java 17
-* Spring Boot 3.3.4
-* Spring Web
-* Springdoc OpenAPI (Swagger)
-* Maven
-* Integração com API externa (Clicksign)
-
----
-
-## ⚙️ Configurações principais
-
-### 🔗 Integração com Clicksign
-
-```yaml
-clicksign:
-  api:
-    url: https://sandbox.clicksign.com/api/v3
-    token: ${CLICKSIGN_API_TOKEN}
-```
-
-⚠️ **Importante:**
-Nunca exponha seu token em repositórios públicos. Utilize variáveis de ambiente.
-
----
-
-## 📄 Documentação da API (Swagger)
-
-Após subir a aplicação, acesse:
-
-* Swagger UI:
-  http://localhost:8080/swagger-ui.html
-
-* OpenAPI JSON:
-  http://localhost:8080/api-docs
-
----
-
-## ▶️ Como executar o projeto
-
-### 🔹 Executar via JAR
-
-```bash
-java -jar SignFlow-0.0.1-SNAPSHOT.jar
-```
-
----
-
-### 🔹 Executar via Maven
-
-```bash
-mvn spring-boot:run
-```
-
----
-
-## 🌐 Variáveis de ambiente
-
-Exemplo:
-
-```bash
-export CLICKSIGN_API_TOKEN=seu_token_aqui
-export SWAGGER_SERVER_URL=https://sua-url.com
-```
-
----
-
-## 📦 Estrutura do projeto
-
-```
-com.signflow
- ├── controller        # Endpoints REST
- ├── service           # Regras de negócio
- ├── client            # Integração com Clicksign
- ├── dto               # Objetos de transferência
- ├── config            # Configurações
- └── SignFlowApplication
-```
-
----
+O projeto segue princípios de **Arquitetura Hexagonal (Clean Architecture)**, separando as regras de negócio das implementações técnicas (gateways, adaptadores de persistência e controladores).
 
 ## 🔐 Segurança
 
-* Utilize variáveis de ambiente para credenciais
-* Nunca versionar tokens no código
-* Recomenda-se uso de Vault ou Secrets Manager em produção
+A API está protegida por autenticação JWT.
 
----
+### Usuário Padrão (Criado na inicialização)
+- **Usuário:** `admin`
+- **Senha:** `admin123`
 
-## 📌 Funcionalidades
+### Como se autenticar
+1. Realize o login no endpoint `/api/v1/auth/login`.
+2. Utilize o token retornado no cabeçalho `Authorization` de todas as requisições subsequentes:
+   ```http
+   Authorization: Bearer <seu_token_jwt>
+   ```
 
-* Criação de documentos para assinatura
-* Envio de documentos para signatários
-* Consulta de status de assinatura
-* Gestão de fluxo de assinaturas
+## ⚙️ Configuração e Execução
 
----
+### Pré-requisitos
+- Docker e Docker Compose
+- JDK 17
+- Maven (ou utilize o `./mvnw` incluso)
 
-## 📄 Deploy
+### Variáveis de Ambiente
+As seguintes variáveis podem ser configuradas no `application.yml` ou passadas via sistema:
 
-A aplicação pode ser executada em:
+| Variável | Descrição | Valor Padrão |
+|----------|-----------|--------------|
+| `CLICKSIGN_URL` | URL da API da ClickSign | `https://sandbox.clicksign.com/api/v3` |
+| `CLICKSIGN_API_TOKEN` | Token de acesso da ClickSign | (Token de Sandbox configurado) |
+| `JWT_SECRET` | Chave secreta para geração do JWT | (Chave fixa para desenvolvimento) |
 
-* Docker
-* Kubernetes / OpenShift
-* Execução standalone via JAR
+### Execução com Docker
+O projeto inclui um `docker-compose.yaml` para subir o banco de dados PostgreSQL:
 
----
-
-## 🧪 Ambiente de testes
-
-API Sandbox:
-
-```
-https://sandbox.clicksign.com/api/v3
-```
-
----
-
-## 🐳 Exemplo Dockerfile
-
-```dockerfile
-FROM eclipse-temurin:17-jdk-alpine
-VOLUME /tmp
-COPY target/SignFlow-0.0.1-SNAPSHOT.jar app.jar
-ENTRYPOINT ["java","-jar","/app.jar"]
+```bash
+docker-compose up -d
 ```
 
----
-
-## 🐳 Exemplo docker-compose
-
-```yaml
-version: '3.8'
-
-services:
-  signflow:
-    build: .
-    ports:
-      - "8080:8080"
-    environment:
-      - CLICKSIGN_API_TOKEN=seu_token_aqui
+### Execução da Aplicação
+```bash
+./mvnw spring-boot:run
 ```
 
----
+## 📖 Documentação da API (Swagger)
 
-## 🧪 Testes
+A documentação interativa da API está disponível em:
+- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
+- **OpenAPI Docs:** `http://localhost:8080/api-docs`
 
-Sugestão de stack:
+## 🛠️ Endpoints Principais
 
-* JUnit
-* Mockito
-* Spring Boot Test
+### Autenticação
+- `POST /api/v1/auth/login`: Realiza login e retorna o token JWT.
 
----
+### Assinaturas (Signature)
+Todos os endpoints abaixo exigem o header `provider` (ex: `CLICKSIGN`) e o token `Bearer`.
 
-## 📈 Melhorias futuras
+- `POST /api/v1/signatures`: Cria um novo envelope.
+- `GET /api/v1/signatures/{externalId}`: Busca detalhes de um envelope.
+- `PATCH /api/v1/signatures/{externalId}`: Edita um envelope.
+- `POST /api/v1/signatures/{externalId}/signers`: Adiciona um signatário.
+- `POST /api/v1/signatures/{externalId}/documents`: Adiciona um documento.
+- `POST /api/v1/signatures/{externalId}/requirements`: Vincula signatário a um documento.
+- `PATCH /api/v1/signatures/{externalId}/activate`: Ativa o envelope para assinatura.
 
-* Autenticação (JWT / OAuth2)
-* Cache com Redis
-* Mensageria (Kafka / RabbitMQ)
-* Observabilidade (Grafana + Prometheus)
-* Testes automatizados completos
+## 🛡️ Resiliência
+A integração com provedores externos é protegida por um **Circuit Breaker** (Resilience4j). Caso o provedor (ex: ClickSign) esteja instável, a aplicação aciona métodos de fallback para evitar falhas em cascata, retornando mensagens amigáveis de erro de integração.
 
----
-
-## 👨‍💻 Autor
-
-Bernardo Trindade
-
----
-
-## ⚠️ Observações
-
-* Revise configurações sensíveis antes de subir para produção
-* Utilize profiles (`dev`, `hml`, `prod`) para separar ambientes
-* Garanta logs estruturados para monitoramento
-
----
+## 🗄️ Persistência e Auditoria
+A aplicação mantém um registro local de:
+- **Envelopes:** Status, ID externo e usuário criador.
+- **Signatários e Documentos:** Vinculados aos envelopes.
+- **Trilha de Auditoria:** Eventos imutáveis que registram cada mudança de status do envelope (Ex: `PROCESSING` -> `SUCCESS`).

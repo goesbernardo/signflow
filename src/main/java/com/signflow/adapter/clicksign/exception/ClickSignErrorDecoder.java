@@ -5,10 +5,12 @@ import feign.Response;
 import feign.Util;
 import feign.codec.ErrorDecoder;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ClickSignErrorDecoder implements ErrorDecoder {
@@ -25,9 +27,7 @@ public class ClickSignErrorDecoder implements ErrorDecoder {
                 rawBody = Util.toString(response.body().asReader());
             }
 
-            System.out.println("CLICK SIGN RAW RESPONSE:");
-            System.out.println(rawBody);
-
+            log.error("Erro na integração com ClickSign: {}", rawBody);
             ObjectMapper mapper = new ObjectMapper();
             mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             ClickSignErrorResponse errorResponse = mapper.readValue(rawBody, ClickSignErrorResponse.class);

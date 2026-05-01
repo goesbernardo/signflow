@@ -8,6 +8,7 @@ import com.signflow.domain.command.AddDocumentCommand;
 import com.signflow.domain.command.AddRequirementCommand;
 import com.signflow.domain.command.AddSignerCommand;
 import com.signflow.domain.command.CreateEnvelopeCommand;
+import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Signer;
@@ -37,12 +38,39 @@ public class ClickSignGateway implements ESignatureGateway {
         return mapper.toEnvelopeDomain(response);
     }
 
+    private Envelope createEnvelopeFallback(CreateEnvelopeCommand cmd, Throwable t) {
+        log.error("Fallback acionado para createEnvelope devido a error na ClickSign: {}", t.getMessage());
+        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível. Por favor, tente novamente mais tarde.", null);
+    }
+
     @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "updateEnvelopeFallback")
+    public Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd) {
+        ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> clickSignBody = ClickSignRequestApiDTO.of("envelopes", new ClickSignEnvelopeAttributesDTO(cmd.getName()));
+        log.info("Enviando requisição de atualização para ClickSign: {}", clickSignBody);
+        var response = clickSignClient.updateEnvelope(externalId, clickSignBody);
+        log.info("Resposta de atualização recebida da ClickSign: {}", response);
+        return mapper.toEnvelopeDomain(response);
+    }
+
+    private Envelope updateEnvelopeFallback(String externalId, UpdateEnvelopeCommand cmd, Throwable t) {
+        log.error("Fallback acionado para updateEnvelope devido a erro na ClickSign: {}", t.getMessage());
+        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para atualização. Por favor, tente novamente mais tarde.", null);
+    }
+
+    @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getEnvelopeFallback")
     public Envelope getEnvelope(String externalId) {
         return mapper.toEnvelopeDomain(clickSignClient.getEnvelope(externalId));
     }
 
+    private Envelope getEnvelopeFallback(String externalId, Throwable t) {
+        log.error("Fallback acionado para getEnvelope devido a erro na ClickSign: {}", t.getMessage());
+        throw new com.signflow.exception.domain.IntegrationException("Não foi possível recuperar os dados do envelope na ClickSign no momento.", null);
+    }
+
     @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addSignerFallback")
     public Signer addSigner(String envelopeId, AddSignerCommand cmd) {
         ClickSignCreateSignAttributesDTO attributes = new ClickSignCreateSignAttributesDTO();
         attributes.setName(cmd.getName() != null ? cmd.getName().trim() : null);
@@ -69,7 +97,13 @@ public class ClickSignGateway implements ESignatureGateway {
         return mapper.toSignerDomain(response);
     }
 
+    private Signer addSignerFallback(String envelopeId, AddSignerCommand cmd, Throwable t) {
+        log.error("Fallback acionado para addSigner devido a erro na ClickSign: {}", t.getMessage());
+        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para adicionar signatários.", null);
+    }
+
     @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addDocumentFallback")
     public Document addDocument(String envelopeId, AddDocumentCommand cmd) {
         ClickSignCreateDocumentAttributesDTO attributes = new ClickSignCreateDocumentAttributesDTO();
         attributes.setFilename(cmd.getFilename());
@@ -79,7 +113,13 @@ public class ClickSignGateway implements ESignatureGateway {
         return mapper.toDocumentDomain(clickSignClient.createDocument(envelopeId, body));
     }
 
+    private Document addDocumentFallback(String envelopeId, AddDocumentCommand cmd, Throwable t) {
+        log.error("Fallback acionado para addDocument devido a erro na ClickSign: {}", t.getMessage());
+        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para upload de documentos.", null);
+    }
+
     @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addRequirementFallback")
     public void addRequirement(String envelopeId, AddRequirementCommand cmd) {
         ClickSignRequirementsAttributesDTO attributes = new ClickSignRequirementsAttributesDTO();
         attributes.setAction(cmd.getAction() != null ? cmd.getAction() : "sign");
@@ -92,12 +132,23 @@ public class ClickSignGateway implements ESignatureGateway {
         clickSignClient.createRequirements(envelopeId, body);
     }
 
+    private void addRequirementFallback(String envelopeId, AddRequirementCommand cmd, Throwable t) {
+        log.error("Fallback acionado para addRequirement devido a erro na ClickSign: {}", t.getMessage());
+        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para vincular signatários a documentos.", null);
+    }
+
     @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "activateEnvelopeFallback")
     public void activateEnvelope(String envelopeId) {
         ClicksignActivateAttributesDTO attributes = new ClicksignActivateAttributesDTO();
         attributes.setStatus("active");
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClicksignActivateAttributesDTO, Void>> body = ClickSignRequestApiDTO.of("envelopes", attributes);
         clickSignClient.activateEnvelope(envelopeId, body);
+    }
+
+    private void activateEnvelopeFallback(String envelopeId, Throwable t) {
+        log.error("Fallback acionado para activateEnvelope devido a erro na ClickSign: {}", t.getMessage());
+        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para ativação de envelopes.", null);
     }
 
     @Override
