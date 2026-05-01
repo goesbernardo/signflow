@@ -11,6 +11,7 @@ import com.signflow.domain.command.CreateEnvelopeCommand;
 import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
+import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -120,7 +121,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addRequirementFallback")
-    public void addRequirement(String envelopeId, AddRequirementCommand cmd) {
+    public Requirement addRequirement(String envelopeId, AddRequirementCommand cmd) {
         ClickSignRequirementsAttributesDTO attributes = new ClickSignRequirementsAttributesDTO();
         attributes.setAction(cmd.getAction() != null ? cmd.getAction() : "sign");
 
@@ -129,10 +130,11 @@ public class ClickSignGateway implements ESignatureGateway {
         relationships.setSigner(new RelationshipDataDTO(new DataIdDTO("signers", cmd.getSignerId())));
 
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignRequirementsAttributesDTO, ClickSignRequirementsRelationshipDTO>> body = ClickSignRequestApiDTO.of("requirements", attributes, relationships);
-        clickSignClient.createRequirements(envelopeId, body);
+        var response = clickSignClient.createRequirements(envelopeId, body);
+        return mapper.toRequirementDomain(response);
     }
 
-    private void addRequirementFallback(String envelopeId, AddRequirementCommand cmd, Throwable t) {
+    private Requirement addRequirementFallback(String envelopeId, AddRequirementCommand cmd, Throwable t) {
         log.error("Fallback acionado para addRequirement devido a erro na ClickSign: {}", t.getMessage());
         throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para vincular signatários a documentos.", null);
     }

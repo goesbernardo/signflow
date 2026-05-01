@@ -7,6 +7,7 @@ CREATE TABLE users (
 CREATE TABLE ENVELOPE_REQUEST (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255),
+    name VARCHAR(255),
     provider VARCHAR(255),
     status VARCHAR(255),
     created TIMESTAMP,
@@ -42,9 +43,7 @@ CREATE TABLE ENVELOPE_EVENT (
     CONSTRAINT fk_event_envelope FOREIGN KEY (envelope_id) REFERENCES ENVELOPE_REQUEST(id)
 );
 
--- Inserir usuário admin padrão para produção com senha 'admin123' criptografada em BCrypt
--- Nota: Em um cenário real de "gerada aleatoriamente", isso seria injetado via variável de ambiente ou script de deploy.
--- Aqui usamos o valor fixo solicitado para manter compatibilidade com o login inicial se necessário, 
--- mas seguindo a regra de ser via migration.
+-- Inserir usuário admin padrão para produção com senha criptografada em BCrypt vinda de placeholders
+-- placeholders: admin_username e admin_password
 INSERT INTO users (username, password) 
-VALUES ('admin', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.SZXkN.G'); 
+VALUES ('${admin_username}', '${admin_password}'); 

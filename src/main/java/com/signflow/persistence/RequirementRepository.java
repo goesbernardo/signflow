@@ -6,6 +6,6 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface DocumentRepository extends JpaRepository<DocumentEntity, Long> {
-    Optional<DocumentEntity> findByExternalId(String externalId);
+public interface RequirementRepository extends JpaRepository<RequirementEntity, Long> {
+    Optional<RequirementEntity> findByExternalId(String externalId);
 }

@@ -9,6 +9,7 @@ import com.signflow.domain.command.CreateEnvelopeCommand;
 import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
+import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
@@ -20,7 +21,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,6 +37,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
     private final SignatureRepository repository;
     private final SignerRepository signerRepository;
     private final DocumentRepository documentRepository;
+    private final RequirementRepository requirementRepository;
     private final EnvelopeEventRepository eventRepository;
 
     @Override
@@ -43,6 +48,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         EnvelopeEntity entity = new EnvelopeEntity();
         entity.setStatus(Status.PROCESSING);
         entity.setProvider(provider);
+        entity.setName(cmd.getName());
         entity.setCreated(LocalDateTime.now());
         
         String currentPrincipalName = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -109,23 +115,66 @@ public class EnvelopeServiceImpl implements EnvelopeService {
 
     @Override
     public Envelope getEnvelope(String externalId, ProviderSignature provider) {
-        ESignatureGateway gateway = registry.get(provider);
-        return gateway.getEnvelope(externalId);
+        return repository.findByExternalId(externalId)
+                .map(entity -> {
+                    log.info("Envelope {} encontrado no banco local.", externalId);
+                    return Envelope.builder()
+                            .id(entity.getId().toString())
+                            .externalId(entity.getExternalId())
+                            .name(entity.getName())
+                            .status(entity.getStatus())
+                            .created(entity.getCreated() != null ? entity.getCreated().atOffset(ZoneOffset.UTC) : null)
+                            .build();
+                })
+                .orElseGet(() -> {
+                    log.info("Envelope {} não encontrado localmente. Consultando provedor {}.", externalId, provider);
+                    ESignatureGateway gateway = registry.get(provider);
+                    return gateway.getEnvelope(externalId);
+                });
     }
 
     @Override
     public Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd, ProviderSignature provider) {
         log.info("Atualizando envelope {} no provedor {}", externalId, provider);
         ESignatureGateway gateway = registry.get(provider);
-        return gateway.updateEnvelope(externalId, cmd);
+        Envelope envelope = gateway.updateEnvelope(externalId, cmd);
+        
+        repository.findByExternalId(externalId).ifPresent(entity -> {
+            entity.setName(cmd.getName());
+            repository.save(entity);
+        });
+        
+        return envelope;
     }
 
     @Override
-    public void addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider) {
+    @Transactional
+    public Requirement addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider) {
         log.info("Adicionando requisito ao envelope {} no provedor {}", externalId, provider);
         ESignatureGateway gateway = registry.get(provider);
-        gateway.addRequirement(externalId, cmd);
+        Requirement requirement = gateway.addRequirement(externalId, cmd);
+
+        repository.findByExternalId(externalId).ifPresent(envelope -> {
+            var signerOpt = signerRepository.findByExternalId(cmd.getSignerId());
+            var docOpt = documentRepository.findByExternalId(cmd.getDocumentId());
+
+            if (signerOpt.isPresent() && docOpt.isPresent()) {
+                RequirementEntity requirementEntity = new RequirementEntity();
+                requirementEntity.setExternalId(requirement.getExternalId());
+                requirementEntity.setEnvelope(envelope);
+                requirementEntity.setSigner(signerOpt.get());
+                requirementEntity.setDocument(docOpt.get());
+                requirementEntity.setCreated(LocalDateTime.now());
+                requirementRepository.save(requirementEntity);
+                log.info("Requisito {} persistido localmente.", requirement.getExternalId());
+            } else {
+                log.warn("Não foi possível persistir o requisito localmente: signatário ou documento não encontrado.");
+            }
+        });
+
+        return requirement;
     }
+
 
     @Override
     @Transactional
@@ -151,6 +200,27 @@ public class EnvelopeServiceImpl implements EnvelopeService {
                         .occurredAt(event.getOccurredAt())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<Envelope> listEnvelopes(Status status, Pageable pageable) {
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        log.info("Listando envelopes para o usuário {} com status {} e paginação {}", userId, status, pageable);
+
+        Page<EnvelopeEntity> entities;
+        if (status != null) {
+            entities = repository.findAllByUserIdAndStatus(userId, status, pageable);
+        } else {
+            entities = repository.findAllByUserId(userId, pageable);
+        }
+
+        return entities.map(entity -> Envelope.builder()
+                .id(entity.getId().toString())
+                .externalId(entity.getExternalId())
+                .name(entity.getName())
+                .status(entity.getStatus())
+                .created(entity.getCreated().atOffset(ZoneOffset.UTC))
+                .build());
     }
 
     private void updateStatus(EnvelopeEntity entity, Status newStatus, String source) {
