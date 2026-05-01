@@ -47,6 +47,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
             entity.setExternalId(envelope.getExternalId());
             repository.save(entity);
 
+            envelope.setId(entity.getId().toString());
             return envelope;
         } catch (Exception e) {
             log.error("Erro ao criar envelope no provedor {}", provider, e);

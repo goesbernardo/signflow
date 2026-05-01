@@ -1,5 +1,6 @@
 package com.signflow.domain.model;
 
+import java.time.OffsetDateTime;
 import lombok.Builder;
 import lombok.Data;
 
@@ -8,5 +9,6 @@ import lombok.Data;
 public class Signer {
     private String externalId;
     private String name;
-    private String email;
+    private OffsetDateTime created;
+    private OffsetDateTime modified;
 }

@@ -12,7 +12,7 @@ public class ClickSignCreateSignAttributesDTO {
     @JsonProperty("has_documentation")
     private Boolean hasDocumentation;
     private Boolean refusable;
-    private Integer group;
+    private String group;
     @JsonProperty("location_required_enabled")
     private Boolean locationRequiredEnabled;
     @JsonProperty("communicate_events")

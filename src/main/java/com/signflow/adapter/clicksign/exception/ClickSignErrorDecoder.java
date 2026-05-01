@@ -29,9 +29,14 @@ public class ClickSignErrorDecoder implements ErrorDecoder {
             System.out.println(rawBody);
 
             ObjectMapper mapper = new ObjectMapper();
+            mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             ClickSignErrorResponse errorResponse = mapper.readValue(rawBody, ClickSignErrorResponse.class);
 
-            return new ClickSignIntegrationException("Erro na integração com Clicksign", errorResponse.getErrors(), rawBody);
+            if (errorResponse != null && errorResponse.getErrors() != null && !errorResponse.getErrors().isEmpty()) {
+                return new ClickSignIntegrationException("Erro na integração com Clicksign", errorResponse.getErrors(), rawBody);
+            }
+
+            return new ClickSignIntegrationException("Erro na integração com Clicksign", List.of(), rawBody);
 
         } catch (Exception e) {
             return new ClickSignIntegrationException("Erro ao processar resposta da Clicksign", List.of(), rawBody);

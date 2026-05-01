@@ -24,7 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/v1/envelopes")
+@RequestMapping("api/v1/signatures")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Signature", description = "APIs de integracao com provedores de assinatura")

@@ -1,5 +1,6 @@
 package com.signflow.exception;
 
+import com.signflow.adapter.clicksign.exception.ClickSignIntegrationException;
 import com.signflow.exception.domain.ErroDetail;
 import com.signflow.exception.domain.ErrorResponse;
 import com.signflow.exception.domain.IntegrationException;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -30,12 +32,25 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IntegrationException.class)
     public ResponseEntity<ErrorResponse> handleIntegrationError(IntegrationException ex, HttpServletRequest request) {
+        List<ErroDetail> details = null;
+
+        if (ex instanceof ClickSignIntegrationException clickSignEx && clickSignEx.getErrors() != null) {
+            details = clickSignEx.getErrors().stream()
+                    .map(error -> ErroDetail.builder()
+                            .code(error.getCode())
+                            .message(error.getDetail())
+                            .field(error.getSource() != null ? error.getSource().getPointer() : null)
+                            .build())
+                    .toList();
+        }
+
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_GATEWAY.value())
                 .error("Erro de integração")
                 .message(ex.getMessage())
                 .path(request.getRequestURI())
+                .details(details)
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(errorResponse);
