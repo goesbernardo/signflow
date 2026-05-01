@@ -9,6 +9,9 @@ import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
+import com.signflow.api.dto.EnvelopeTimelineResponse;
+
+import java.util.List;
 
 public interface EnvelopeService {
     Envelope createEnvelope(CreateEnvelopeCommand cmd, ProviderSignature provider);
@@ -18,4 +21,5 @@ public interface EnvelopeService {
     Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider);
     void addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider);
     void activateEnvelope(String externalId, ProviderSignature provider);
+    List<EnvelopeTimelineResponse> getTimeline(String externalId);
 }
