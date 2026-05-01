@@ -6,6 +6,7 @@ import com.signflow.domain.command.AddDocumentCommand;
 import com.signflow.domain.command.AddRequirementCommand;
 import com.signflow.domain.command.AddSignerCommand;
 import com.signflow.domain.command.CreateEnvelopeCommand;
+import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Signer;
@@ -61,6 +62,13 @@ public class EnvelopeServiceImpl implements EnvelopeService {
     public Envelope getEnvelope(String externalId, ProviderSignature provider) {
         ESignatureGateway gateway = registry.get(provider);
         return gateway.getEnvelope(externalId);
+    }
+
+    @Override
+    public Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd, ProviderSignature provider) {
+        log.info("Atualizando envelope {} no provedor {}", externalId, provider);
+        ESignatureGateway gateway = registry.get(provider);
+        return gateway.updateEnvelope(externalId, cmd);
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.signflow.domain.command.AddDocumentCommand;
 import com.signflow.domain.command.AddRequirementCommand;
 import com.signflow.domain.command.AddSignerCommand;
 import com.signflow.domain.command.CreateEnvelopeCommand;
+import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Signer;
@@ -47,14 +48,38 @@ public class SignatureController {
 
     @GetMapping("/{externalId}")
     @Operation(summary = "Busca dados do envelope", description = "Busca dados vinculados a um envelope no provedor.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Envelope recuperado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Requisicao invalida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Falha de integracao com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     public ResponseEntity<Envelope> getEnvelope(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
         Envelope response = envelopeService.getEnvelope(externalId, provider);
         log.info("Envelope encontrado com sucesso: {}", response);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @PatchMapping("/{externalId}")
+    @Operation(summary = "Editar envelope", description = "Edita as configurações de um envelope existente.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Envelope atualizado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Requisicao invalida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Envelope não encontrado", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Falha de integracao com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<Envelope> updateEnvelope(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @RequestBody @Valid UpdateEnvelopeCommand command) {
+        Envelope response = envelopeService.updateEnvelope(externalId, command, provider);
+        log.info("Envelope atualizado com sucesso: {}", response);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
     @PostMapping("/{externalId}/signers")
     @Operation(summary = "Adicionar signatário", description = "Adiciona um novo signatário ao envelope.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Signatário adicionado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Requisicao invalida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Falha de integracao com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     public ResponseEntity<Signer> addSigner(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @RequestBody @Valid AddSignerCommand command) {
         Signer response = envelopeService.addSigner(externalId, command, provider);
         log.info("assinante adicionado  {}: {}", provider,externalId);
@@ -63,6 +88,11 @@ public class SignatureController {
 
     @PostMapping("/{externalId}/documents")
     @Operation(summary = "Adicionar documento", description = "Adiciona um novo documento ao envelope.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Documento adicionado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Requisicao invalida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Falha de integracao com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     public ResponseEntity<Document> addDocument(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @RequestBody @Valid AddDocumentCommand command) {
         Document response = envelopeService.addDocument(externalId, command, provider);
         log.info("documento adicionado  {}: {}", provider,externalId);
@@ -71,6 +101,11 @@ public class SignatureController {
 
     @PostMapping("/{externalId}/requirements")
     @Operation(summary = "Adicionar requisito", description = "Vincula um signatário a um documento no envelope.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Requisito adicionado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Requisicao invalida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Falha de integracao com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     public ResponseEntity<Void> addRequirement(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @RequestBody @Valid AddRequirementCommand command) {
         envelopeService.addRequirement(externalId, command, provider);
         log.info("requisito adicionado {}: {}", provider,externalId);
@@ -79,6 +114,11 @@ public class SignatureController {
 
     @PatchMapping("/{externalId}/activate")
     @Operation(summary = "Ativar envelope", description = "Ativa o envelope para que os signatários possam assinar.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Envelope ativado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Requisicao invalida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Falha de integracao com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     public ResponseEntity<Void> activateEnvelope(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
         envelopeService.activateEnvelope(externalId, provider);
         log.info("envelope ativado {}: {}", provider,externalId);
