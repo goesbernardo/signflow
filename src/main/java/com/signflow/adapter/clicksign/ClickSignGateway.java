@@ -31,36 +31,42 @@ public class ClickSignGateway implements ESignatureGateway {
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "createEnvelopeFallback")
     public Envelope createEnvelope(CreateEnvelopeCommand cmd) {
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> clickSignBody = ClickSignRequestApiDTO.of("envelopes", new ClickSignEnvelopeAttributesDTO(cmd.getName()));
+        log.info("Enviando requisição para ClickSign: {}", clickSignBody);
         var response = clickSignClient.createEnvelope(clickSignBody);
-        return mapper.toDomain(response);
-    }
-
-    public Envelope createEnvelopeFallback(CreateEnvelopeCommand cmd, Throwable t) {
-        log.error("Erro ao criar envelope na ClickSign (fallback): {}", t.getMessage());
-        return Envelope.builder()
-                .name(cmd.getName())
-                .build();
+        log.info("Resposta recebida da ClickSign: {}", response);
+        return mapper.toEnvelopeDomain(response);
     }
 
     @Override
     public Envelope getEnvelope(String externalId) {
-        return mapper.toDomain(clickSignClient.getEnvelope(externalId));
+        return mapper.toEnvelopeDomain(clickSignClient.getEnvelope(externalId));
     }
 
     @Override
     public Signer addSigner(String envelopeId, AddSignerCommand cmd) {
         ClickSignCreateSignAttributesDTO attributes = new ClickSignCreateSignAttributesDTO();
-        attributes.setName(cmd.getName());
+        attributes.setName(cmd.getName() != null ? cmd.getName().trim() : null);
         attributes.setEmail(cmd.getEmail());
-        attributes.setDocumentation(cmd.getDocumentation());
-        attributes.setHasDocumentation(cmd.getHasDocumentation());
+        attributes.setGroup("1");
+        
+        String documentation = cmd.getDocumentation();
+        attributes.setDocumentation(documentation);
+        
+        attributes.setHasDocumentation(cmd.getHasDocumentation() != null ? cmd.getHasDocumentation() : (documentation != null && !documentation.isEmpty()));
+        attributes.setRefusable(false);
+        attributes.setLocationRequiredEnabled(false);
 
         ClickSignCreateSignEventsDTO events = new ClickSignCreateSignEventsDTO();
-        events.setSignatureRequest("email"); // Valor padrao para o fluxo
+        events.setSignatureRequest(cmd.getRequestSignature() != null ? cmd.getRequestSignature() : "email"); // Valor padrao para o fluxo
+        events.setSignatureReminder("none");
+        events.setDocumentSigned(cmd.getDelivery() != null ? cmd.getDelivery() : "email");
         attributes.setCommunicateEvents(events);
 
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignCreateSignAttributesDTO, Void>> body = ClickSignRequestApiDTO.of("signers", attributes);
-        return mapper.toSignerDomain(clickSignClient.createSigner(envelopeId, body));
+        log.info("Adicionando signatário ao envelope {}: {}", envelopeId, body);
+        var response = clickSignClient.createSigner(envelopeId, body);
+        log.info("Resposta do signatário recebida: {}", response);
+        return mapper.toSignerDomain(response);
     }
 
     @Override
@@ -77,7 +83,6 @@ public class ClickSignGateway implements ESignatureGateway {
     public void addRequirement(String envelopeId, AddRequirementCommand cmd) {
         ClickSignRequirementsAttributesDTO attributes = new ClickSignRequirementsAttributesDTO();
         attributes.setAction(cmd.getAction() != null ? cmd.getAction() : "sign");
-        attributes.setRole(cmd.getRole() != null ? cmd.getRole() : "signer");
 
         ClickSignRequirementsRelationshipDTO relationships = new ClickSignRequirementsRelationshipDTO();
         relationships.setDocument(new RelationshipDataDTO(new DataIdDTO("documents", cmd.getDocumentId())));

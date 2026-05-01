@@ -1,5 +1,6 @@
 package com.signflow.domain.model;
 
+import java.time.OffsetDateTime;
 import lombok.Builder;
 import lombok.Data;
 
@@ -7,5 +8,6 @@ import lombok.Data;
 @Builder
 public class Document {
     private String externalId;
-    private String filename;
+    private OffsetDateTime created;
+    private OffsetDateTime modified;
 }

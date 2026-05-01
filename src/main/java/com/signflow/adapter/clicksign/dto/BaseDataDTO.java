@@ -1,8 +1,10 @@
 package com.signflow.adapter.clicksign.dto;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class BaseDataDTO {
 
     private String id;

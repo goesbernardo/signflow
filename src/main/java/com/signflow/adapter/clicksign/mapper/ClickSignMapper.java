@@ -12,16 +12,26 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClickSignMapper {
 
-    public Envelope toDomain(SignatureClickSignResponseDTO response) {
+    public Envelope toEnvelopeDomain(SignatureClickSignResponseDTO response) {
         if (response == null || response.getData() == null) {
             return null;
         }
         ClickSignResponseDataDTO data = response.getData();
         ClickSignResponseAttributesDTO attributes = data.getAttributes();
 
+        Status domainStatus = null;
+        if (attributes != null && attributes.getStatus() != null) {
+            try {
+                domainStatus = Status.valueOf(attributes.getStatus().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                domainStatus = Status.PENDING; // Fallback seguro
+            }
+        }
+
         return Envelope.builder()
                 .externalId(data.getId())
-                .status(attributes != null && attributes.getStatus() != null ? Status.valueOf(attributes.getStatus().toUpperCase()) : null)
+                .name(attributes != null ? attributes.getName() : null)
+                .status(domainStatus)
                 .created(attributes != null ? attributes.getCreated() : null)
                 .modified(attributes != null ? attributes.getModified() : null)
                 .build();
@@ -31,8 +41,14 @@ public class ClickSignMapper {
         if (response == null || response.getData() == null) {
             return null;
         }
+        ClickSignResponseDataDTO data = response.getData();
+        ClickSignResponseAttributesDTO attributes = data.getAttributes();
+
         return Signer.builder()
-                .externalId(response.getData().getId())
+                .externalId(data.getId())
+                .name(attributes != null ? attributes.getName() : null)
+                .created(attributes != null ? attributes.getCreated() : null)
+                .modified(attributes != null ? attributes.getModified() : null)
                 .build();
     }
 
@@ -40,8 +56,13 @@ public class ClickSignMapper {
         if (response == null || response.getData() == null) {
             return null;
         }
+        ClickSignResponseDataDTO data = response.getData();
+        ClickSignResponseAttributesDTO attributes = data.getAttributes();
+
         return Document.builder()
-                .externalId(response.getData().getId())
+                .externalId(data.getId())
+                .created(attributes != null ? attributes.getCreated() : null)
+                .modified(attributes != null ? attributes.getModified() : null)
                 .build();
     }
 }

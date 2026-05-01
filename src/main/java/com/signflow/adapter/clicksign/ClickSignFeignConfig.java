@@ -1,5 +1,8 @@
 package com.signflow.adapter.clicksign;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.signflow.adapter.clicksign.exception.ClickSignErrorDecoder;
 import feign.Logger;
 import feign.RequestInterceptor;
@@ -33,8 +36,11 @@ public class ClickSignFeignConfig {
     }
     @Bean
     public Decoder feignDecoder() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
+        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter(objectMapper);
 
         converter.setSupportedMediaTypes(List.of(MediaType.APPLICATION_JSON, MediaType.valueOf("application/vnd.api+json")));
 

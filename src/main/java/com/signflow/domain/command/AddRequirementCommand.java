@@ -13,5 +13,4 @@ public class AddRequirementCommand {
     private String signerId;
     private String documentId;
     private String action; // sign, approve, acknowledge, etc
-    private String role; // witness, intermediary, etc
 }
