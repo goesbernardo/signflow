@@ -69,6 +69,7 @@ resilience4j:
         limitRefreshPeriod: 1m
         timeoutDuration: 0
         registerHealthIndicator: true
+    rate-limiter-aspect-order: 0
 
 security:
   jwt:

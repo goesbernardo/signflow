@@ -15,41 +15,38 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-@Aspect
-@Component
-@RequiredArgsConstructor
 @Slf4j
-public class RateLimiterAspect {
+@Aspect
+@Component("signflowRateLimiterAspect")
+@RequiredArgsConstructor
+public class SignflowRateLimiterAspect {
 
     private final RateLimiterRegistry rateLimiterRegistry;
 
     @Around("@annotation(io.github.resilience4j.ratelimiter.annotation.RateLimiter)")
     public Object rateLimit(ProceedingJoinPoint joinPoint) throws Throwable {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String key;
-
-        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getName())) {
-            key = "user:" + authentication.getName();
-        } else {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-            key = "ip:" + getClientIp(request);
-        }
-
+        String key = resolveKey();
         RateLimiter rateLimiter = rateLimiterRegistry.rateLimiter(key, "userRateLimiter");
 
         if (rateLimiter.acquirePermission()) {
             return joinPoint.proceed();
-        } else {
-            log.warn("Rate limit excedido para a chave: {}", key);
-            throw RequestNotPermitted.createRequestNotPermitted(rateLimiter);
         }
+
+        log.warn("Rate limit excedido para a chave: {}", key);
+        throw RequestNotPermitted.createRequestNotPermitted(rateLimiter);
+    }
+
+    private String resolveKey() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName())) {
+            return "user:" + auth.getName();
+        }
+        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+        return "ip:" + getClientIp(request);
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader == null) {
-            return request.getRemoteAddr();
-        }
-        return xfHeader.split(",")[0];
+        String xff = request.getHeader("X-Forwarded-For");
+        return xff != null ? xff.split(",")[0].trim() : request.getRemoteAddr();
     }
 }
