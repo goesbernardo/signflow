@@ -37,9 +37,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
-    placeholders:
-      admin_username: ${ADMIN_USERNAME:admin}
-      admin_password: ${ADMIN_PASSWORD:$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.SZXkN.G}
+
   jpa:
     hibernate:
       ddl-auto: validate
