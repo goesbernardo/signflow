@@ -11,4 +11,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CreateEnvelopeCommand {
     private String name;
+    private WebhookCommand webhook;
 }

@@ -69,7 +69,7 @@ public class SignatureController {
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<Envelope> createEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"Contrato de Prestação de Serviços\" }"))) @RequestBody @Valid CreateEnvelopeCommand command) {
+                                                   @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"Contrato de Prestação de Serviços\" }"))) @RequestBody @Valid CreateEnvelopeCommand command) {
         Envelope response = envelopeService.createEnvelope(command, provider);
         log.info("Envelope criado com sucesso: {}", response);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -98,8 +98,8 @@ public class SignatureController {
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<Envelope> updateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"Contrato Atualizado v2\" }")))
-            @RequestBody @Valid UpdateEnvelopeCommand command) {
+                                                   @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"Contrato Atualizado v2\" }")))
+                                                   @RequestBody @Valid UpdateEnvelopeCommand command) {
         Envelope response = envelopeService.updateEnvelope(externalId, command, provider);
         log.info("Envelope atualizado com sucesso: {}", response);
         return ResponseEntity.status(HttpStatus.OK).body(response);
@@ -116,10 +116,10 @@ public class SignatureController {
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
     public ResponseEntity<Signer> addSigner(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"João Silva\", \"email\": \"joao.silva@email.com\", \"documentation\": \"123.456.789-00\", \"hasDocumentation\": true, \"delivery\": \"email\" }")))
-            @RequestBody @Valid AddSignerCommand command) {
+                                            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"João Silva\", \"email\": \"joao.silva@email.com\", \"documentation\": \"123.456.789-00\", \"hasDocumentation\": true, \"delivery\": \"email\" }")))
+                                            @RequestBody @Valid AddSignerCommand command) {
         Signer response = envelopeService.addSigner(externalId, command, provider);
-        log.info("assinante adicionado  {}: {}", provider,externalId);
+        log.info("assinante adicionado  {}: {}", provider, externalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -134,10 +134,10 @@ public class SignatureController {
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
     public ResponseEntity<Document> addDocument(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"filename\": \"contrato.pdf\", \"content_base64\": \"JVBERi0xLjQKJ...\", \"email\": \"admin@signflow.com\" }")))
-            @RequestBody @Valid AddDocumentCommand command) {
+                                                @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"filename\": \"contrato.pdf\", \"content_base64\": \"JVBERi0xLjQKJ...\", \"email\": \"admin@signflow.com\" }")))
+                                                @RequestBody @Valid AddDocumentCommand command) {
         Document response = envelopeService.addDocument(externalId, command, provider);
-        log.info("documento adicionado  {}: {}", provider,externalId);
+        log.info("documento adicionado  {}: {}", provider, externalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -149,8 +149,8 @@ public class SignatureController {
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
     public ResponseEntity<Requirement> addRequirement(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"documentId\": \"doc-123\", \"signerId\": \"signer-456\" }")))
-            @RequestBody @Valid AddRequirementCommand command) {
+                                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"documentId\": \"doc-123\", \"signerId\": \"signer-456\" }")))
+                                                      @RequestBody @Valid AddRequirementCommand command) {
         Requirement response = envelopeService.addRequirement(externalId, command, provider);
         log.info("requisito adicionado {}: {}", provider, externalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -165,7 +165,7 @@ public class SignatureController {
     })
     public ResponseEntity<Void> activateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
         envelopeService.activateEnvelope(externalId, provider);
-        log.info("envelope ativado {}: {}", provider,externalId);
+        log.info("envelope ativado {}: {}", provider, externalId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
@@ -182,10 +182,4 @@ public class SignatureController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/webhook/{provider}")
-    @Operation(hidden = true)
-    public ResponseEntity<Void> receiveWebhook(@PathVariable String provider, @RequestBody(required = false) String payload) {
-        log.info("Webhook recebido do provedor {}: {}", provider, payload);
-        return ResponseEntity.ok().build();
-    }
 }
