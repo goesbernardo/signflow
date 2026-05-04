@@ -28,6 +28,9 @@ public class EnvelopeEventEntity {
 
     @Enumerated(EnumType.STRING)
     private Status newStatus;
+    
+    @Column(name = "provider_status")
+    private String providerStatus;
 
     private String source;
 

@@ -4,7 +4,7 @@ signflow:
       enabled: true
       base-url: ${CLICKSIGN_URL:https://sandbox.clicksign.com/api/v3}
       token: ${CLICKSIGN_API_TOKEN:e6acc96a-bfba-40fc-8248-62727f4f632e}
-      webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET:}
+      webhook-secret: d583189e2fb91887cdc8f69d37fc38ce
     docusign:
       enabled: false
       base-url: ${DOCUSIGN_URL:}

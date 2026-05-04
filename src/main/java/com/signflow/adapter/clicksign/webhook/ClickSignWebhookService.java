@@ -65,7 +65,6 @@ public class ClickSignWebhookService {
             return;
         }
 
-        // Mapear status da ClickSign para o domínio
         String rawStatus = Optional.ofNullable(payload.data().attributes())
                 .map(WebhookAttributesDTO::status)
                 .map(String::toLowerCase)
@@ -77,13 +76,7 @@ public class ClickSignWebhookService {
         }
 
         Status newStatus = STATUS_MAP.get(rawStatus);
-        if (newStatus == null) {
-            log.warn("Status desconhecido recebido via webhook: '{}' para envelope {}. Ignorando.",
-                    rawStatus, externalId);
-            return;
-        }
 
-        // Buscar envelope no banco e atualizar
         Optional<EnvelopeEntity> entityOpt = envelopeRepository.findByExternalId(externalId);
         if (entityOpt.isEmpty()) {
             log.warn("Webhook recebido para envelope desconhecido: {}. " +
@@ -93,25 +86,21 @@ public class ClickSignWebhookService {
 
         EnvelopeEntity entity = entityOpt.get();
         Status previousStatus = entity.getStatus();
-
-        if (previousStatus == newStatus) {
-            log.info("Envelope {} já está com status {}. Nenhuma atualização necessária.",
-                    externalId, newStatus);
-            return;
-        }
-
-        // Atualizar status e gravar evento de auditoria
-        entity.setStatus(newStatus);
+        
+        entity.setStatus(newStatus != null ? newStatus : entity.getStatus());
+        entity.setProviderStatus(rawStatus);
         envelopeRepository.save(entity);
 
         EnvelopeEventEntity event = new EnvelopeEventEntity();
         event.setEnvelope(entity);
         event.setPreviousStatus(previousStatus);
         event.setNewStatus(newStatus);
+        event.setProviderStatus(rawStatus);
         event.setSource("WEBHOOK");
         event.setOccurredAt(LocalDateTime.now());
         eventRepository.save(event);
 
-        log.info("Envelope {} atualizado via webhook: {} → {}", externalId, previousStatus, newStatus);
+        log.info("Envelope {} atualizado via webhook. Status interno: {} | Status Provedor: {}", 
+                externalId, newStatus, rawStatus);
     }
 }

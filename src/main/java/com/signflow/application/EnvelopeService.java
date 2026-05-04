@@ -17,7 +17,7 @@ public interface EnvelopeService {
     Envelope createEnvelope(CreateEnvelopeCommand cmd, ProviderSignature provider);
     Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd, ProviderSignature provider);
     Envelope getEnvelope(String externalId, ProviderSignature provider);
-    Signer addSigner(String externalId, AddSignerCommand cmd, ProviderSignature provider);
+    List<Signer> addSigners(String externalId, List<AddSignerCommand> commands, ProviderSignature provider);
     Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider);
     Requirement addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider);
     void activateEnvelope(String externalId, ProviderSignature provider);
