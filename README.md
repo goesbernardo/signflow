@@ -102,6 +102,17 @@ Exemplo de uso:
 Accept-Language: en-US
 ```
 
+## 🧪 Testes
+
+O projeto utiliza **JUnit 5**, **Mockito** e **MockMvc** para garantir a qualidade do código.
+
+### Testes Unitários (Controllers)
+Os testes unitários focam na camada de API, validando os contratos, headers obrigatórios e integrações básicas.
+Para executar os testes:
+```bash
+./mvnw test
+```
+
 ## 🛡️ Resiliência e Erros
 A integração com provedores externos é protegida por um **Circuit Breaker** (Resilience4j). Caso um provedor esteja instável, a aplicação aciona métodos de fallback que retornam mensagens de erro internacionalizadas. Cada provedor possui sua própria configuração de circuit breaker, garantindo isolamento entre falhas.
 
