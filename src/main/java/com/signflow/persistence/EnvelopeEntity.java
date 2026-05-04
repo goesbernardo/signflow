@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "ENVELOPE_REQUEST")
+@Table(name = "envelope_request")
 @Getter
 @Setter
 @NoArgsConstructor
