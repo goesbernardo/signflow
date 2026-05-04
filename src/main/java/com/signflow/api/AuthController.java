@@ -31,9 +31,7 @@ public class AuthController {
     private final JwtUtils jwtUtils;
 
     @Operation(summary = "Realizar login", description = "Autentica um usuário e retorna um token JWT para acesso às APIs protegidas.")
-    @ApiResponse(responseCode = "200", description = "Login realizado com sucesso",
-            content = @Content(schema = @Schema(implementation = LoginResponse.class),
-                    examples = @ExampleObject(value = "{ \"token\": \"eyJhbGciOiJIUzI1NiJ9...\" }")))
+    @ApiResponse(responseCode = "200", description = "Login realizado com sucesso", content = @Content(schema = @Schema(implementation = LoginResponse.class), examples = @ExampleObject(value = "{ \"token\": \"eyJhbGciOiJIUzI1NiJ9...\" }")))
     @ApiResponse(responseCode = "401", description = "Credenciais inválidas")
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Credenciais de acesso", content = @Content(examples = @ExampleObject(value = "{ \"username\": \"admin\", \"password\": \"admin123\" }")))

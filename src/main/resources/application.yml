@@ -71,7 +71,7 @@ resilience4j:
 
 security:
   jwt:
-    secret: ${JWT_SECRET:minha-chave-secreta-padrao-para-desenvolvimento-local-com-32-chars}
+    secret: ${JWT_SECRET:df73c948e54297f96a3092f08576f707f1545638641a96781213f56e07802871}
     expiration: 86400000 # 24 hours
 
 management:
@@ -82,9 +82,9 @@ management:
   endpoint:
     health:
       show-details: always
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true
 
 logging:

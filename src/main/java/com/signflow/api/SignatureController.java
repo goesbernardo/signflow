@@ -2,11 +2,7 @@ package com.signflow.api;
 
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import com.signflow.application.EnvelopeService;
-import com.signflow.domain.command.AddDocumentCommand;
-import com.signflow.domain.command.AddRequirementCommand;
-import com.signflow.domain.command.AddSignerCommand;
-import com.signflow.domain.command.CreateEnvelopeCommand;
-import com.signflow.domain.command.UpdateEnvelopeCommand;
+import com.signflow.domain.command.*;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
@@ -149,24 +145,24 @@ public class SignatureController {
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
     public ResponseEntity<Requirement> addRequirement(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-                                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"documentId\": \"doc-123\", \"signerId\": \"signer-456\" }")))
+                                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"documentId\": \"doc-123\", \"signerId\": \"signer-456\", \"action\": \"sign\", \"auth\": \"email\" }")))
                                                       @RequestBody @Valid AddRequirementCommand command) {
         Requirement response = envelopeService.addRequirement(externalId, command, provider);
         log.info("requisito adicionado {}: {}", provider, externalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PatchMapping("/{externalId}/activate")
+    @PutMapping("/{externalId}/activate")
     @Operation(summary = "Ativar envelope", description = "Finaliza a edição do envelope e dispara as notificações para assinatura.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Envelope ativado com sucesso"),
+            @ApiResponse(responseCode = "204", description = "Envelope em processo de ativação. O resultado final será enviado via webhook."),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
+            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<Void> activateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
-        envelopeService.activateEnvelope(externalId, provider);
-        log.info("envelope ativado {}: {}", provider, externalId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    public ResponseEntity<Void> activateEnvelope(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @RequestBody @Valid ActivateEnvelopeCommand command) {
+        envelopeService.activateEnvelopeComplete(provider, externalId, command);
+        log.info("Processo de ativação do envelope {} iniciado via provider {}", externalId, provider);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{externalId}/timeline")

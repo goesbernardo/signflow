@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signflow.application.EnvelopeService;
 import com.signflow.config.JwtAuthenticationFilter;
 import com.signflow.config.JwtUtils;
+import com.signflow.domain.command.ActivateEnvelopeCommand;
+import com.signflow.domain.command.AddRequirementCommand;
 import com.signflow.domain.command.CreateEnvelopeCommand;
 import com.signflow.domain.model.Envelope;
+import com.signflow.domain.model.Requirement;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
 import org.junit.jupiter.api.Test;
@@ -26,7 +29,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -95,5 +100,50 @@ public class SignatureControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(command)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldAddRequirementWithQualificationSuccessfully() throws Exception {
+        String envelopeId = UUID.randomUUID().toString();
+        AddRequirementCommand command = AddRequirementCommand.builder()
+                .documentId("doc-123")
+                .signerId("signer-456")
+                .action("sign")
+                .auth("email")
+                .role("witness")
+                .build();
+
+        Requirement mockResponse = Requirement.builder()
+                .externalId(UUID.randomUUID().toString())
+                .build();
+
+        when(envelopeService.addRequirement(eq(envelopeId), any(AddRequirementCommand.class), eq(ProviderSignature.CLICKSIGN)))
+                .thenReturn(mockResponse);
+
+        mockMvc.perform(post("/api/v1/signatures/{externalId}/requirements", envelopeId)
+                        .header("provider", "CLICKSIGN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(command)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.externalId").exists());
+    }
+
+    @Test
+    @WithMockUser
+    void shouldActivateEnvelopeSuccessfully() throws Exception {
+        String envelopeId = UUID.randomUUID().toString();
+        ActivateEnvelopeCommand command = ActivateEnvelopeCommand.builder()
+                .signerId("signer-123")
+                .documentId("doc-456")
+                .role("sign")
+                .auth("email")
+                .build();
+
+        mockMvc.perform(put("/api/v1/signatures/{externalId}/activate", envelopeId)
+                        .header("provider", "CLICKSIGN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(command)))
+                .andExpect(status().isNoContent());
     }
 }

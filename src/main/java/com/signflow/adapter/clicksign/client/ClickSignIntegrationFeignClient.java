@@ -74,7 +74,7 @@ public interface ClickSignIntegrationFeignClient {
     /**
      * Cria uma ativação  para o envelope.
      */
-    @PatchMapping("envelopes/{envelopeId}")
+    @PutMapping("envelopes/{envelopeId}")
     SignatureClickSignResponseDTO activateEnvelope(@PathVariable String envelopeId,@RequestBody ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClicksignActivateAttributesDTO,Void>> request);
 
 }

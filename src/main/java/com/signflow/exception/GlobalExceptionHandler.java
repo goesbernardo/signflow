@@ -39,9 +39,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IntegrationException.class)
     public ResponseEntity<ErrorResponse> handleIntegrationError(IntegrationException ex, HttpServletRequest request) {
-        List<ErroDetail> details = null;
+        List<ErroDetail> details = ex.getDetails();
 
-        if (ex instanceof ClickSignIntegrationException clickSignEx && clickSignEx.getErrors() != null) {
+        if (details == null && ex instanceof ClickSignIntegrationException clickSignEx && clickSignEx.getErrors() != null) {
             details = clickSignEx.getErrors().stream()
                     .map(error -> ErroDetail.builder()
                             .code(error.getCode())
