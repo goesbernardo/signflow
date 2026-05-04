@@ -28,6 +28,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private final ClickSignIntegrationFeignClient clickSignClient;
     private final ClickSignMapper mapper;
+    private final org.springframework.context.MessageSource messageSource;
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "createEnvelopeFallback")
@@ -41,7 +42,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private Envelope createEnvelopeFallback(CreateEnvelopeCommand cmd, Throwable t) {
         log.error("Fallback acionado para createEnvelope devido a error na ClickSign: {}", t.getMessage());
-        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível. Por favor, tente novamente mais tarde.", null);
+        throw new com.signflow.exception.domain.IntegrationException(getMessage("error.clicksign_unavailable"), null);
     }
 
     @Override
@@ -56,7 +57,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private Envelope updateEnvelopeFallback(String externalId, UpdateEnvelopeCommand cmd, Throwable t) {
         log.error("Fallback acionado para updateEnvelope devido a erro na ClickSign: {}", t.getMessage());
-        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para atualização. Por favor, tente novamente mais tarde.", null);
+        throw new com.signflow.exception.domain.IntegrationException(getMessage("error.clicksign_unavailable"), null);
     }
 
     @Override
@@ -67,7 +68,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private Envelope getEnvelopeFallback(String externalId, Throwable t) {
         log.error("Fallback acionado para getEnvelope devido a erro na ClickSign: {}", t.getMessage());
-        throw new com.signflow.exception.domain.IntegrationException("Não foi possível recuperar os dados do envelope na ClickSign no momento.", null);
+        throw new com.signflow.exception.domain.IntegrationException(getMessage("error.clicksign_fetch_failed"), null);
     }
 
     @Override
@@ -100,7 +101,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private Signer addSignerFallback(String envelopeId, AddSignerCommand cmd, Throwable t) {
         log.error("Fallback acionado para addSigner devido a erro na ClickSign: {}", t.getMessage());
-        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para adicionar signatários.", null);
+        throw new com.signflow.exception.domain.IntegrationException(getMessage("error.clicksign_unavailable"), null);
     }
 
     @Override
@@ -116,7 +117,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private Document addDocumentFallback(String envelopeId, AddDocumentCommand cmd, Throwable t) {
         log.error("Fallback acionado para addDocument devido a erro na ClickSign: {}", t.getMessage());
-        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para upload de documentos.", null);
+        throw new com.signflow.exception.domain.IntegrationException(getMessage("error.clicksign_unavailable"), null);
     }
 
     @Override
@@ -136,7 +137,7 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private Requirement addRequirementFallback(String envelopeId, AddRequirementCommand cmd, Throwable t) {
         log.error("Fallback acionado para addRequirement devido a erro na ClickSign: {}", t.getMessage());
-        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para vincular signatários a documentos.", null);
+        throw new com.signflow.exception.domain.IntegrationException(getMessage("error.clicksign_unavailable"), null);
     }
 
     @Override
@@ -150,7 +151,11 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private void activateEnvelopeFallback(String envelopeId, Throwable t) {
         log.error("Fallback acionado para activateEnvelope devido a erro na ClickSign: {}", t.getMessage());
-        throw new com.signflow.exception.domain.IntegrationException("O serviço da ClickSign está temporariamente indisponível para ativação de envelopes.", null);
+        throw new com.signflow.exception.domain.IntegrationException(getMessage("error.clicksign_unavailable"), null);
+    }
+
+    private String getMessage(String code) {
+        return messageSource.getMessage(code, null, org.springframework.context.i18n.LocaleContextHolder.getLocale());
     }
 
     @Override
