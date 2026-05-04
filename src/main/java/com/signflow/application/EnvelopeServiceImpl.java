@@ -2,11 +2,7 @@ package com.signflow.application;
 
 import com.signflow.adapter.ESignatureGateway;
 import com.signflow.adapter.SignatureGatewayRegistry;
-import com.signflow.domain.command.AddDocumentCommand;
-import com.signflow.domain.command.AddRequirementCommand;
-import com.signflow.domain.command.AddSignerCommand;
-import com.signflow.domain.command.CreateEnvelopeCommand;
-import com.signflow.domain.command.UpdateEnvelopeCommand;
+import com.signflow.domain.command.*;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
@@ -26,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -183,8 +180,8 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         ESignatureGateway gateway = registry.get(provider);
         gateway.activateEnvelope(externalId);
         
-        repository.findByExternalId(externalId).ifPresent(envelope -> {
-            updateStatus(envelope, Status.ACTIVE, "API");
+        repository.findByExternalId(externalId).ifPresent(entity -> {
+            updateStatus(entity, Status.ACTIVE, "API");
         });
     }
 
@@ -223,6 +220,85 @@ public class EnvelopeServiceImpl implements EnvelopeService {
                 .build());
     }
 
+    @Override
+    @Transactional
+    public void activateEnvelopeComplete(ProviderSignature provider, String externalId, ActivateEnvelopeCommand command) {
+
+        log.info("Iniciando ativação completa do envelope {} no provedor {}", externalId, provider);
+
+        String role = command.role() != null ? command.role() : "sign";
+        String auth = command.auth() != null ? command.auth() : "email";
+
+        ESignatureGateway gateway = registry.get(provider);
+
+        // ── 1. Requisito de Qualificação ─────────────────────────────
+        AddRequirementCommand qualification = AddRequirementCommand.builder()
+                .signerId(command.signerId())
+                .documentId(command.documentId())
+                .action("agree")
+                .role(role)
+                .build();
+
+        Requirement qualificationReq = gateway.addRequirement(externalId, qualification);
+        log.info("Requisito de qualificação criado: {}", qualificationReq.getExternalId());
+
+        repository.findByExternalId(externalId).ifPresent(envelope -> {
+            Optional<SignerEntity>   signerOpt = signerRepository.findByExternalId(command.signerId());
+            Optional<DocumentEntity> docOpt   = documentRepository.findByExternalId(command.documentId());
+
+            if (signerOpt.isPresent() && docOpt.isPresent()) {
+                RequirementEntity reqEntity = new RequirementEntity();
+                reqEntity.setExternalId(qualificationReq.getExternalId());
+                reqEntity.setEnvelope(envelope);
+                reqEntity.setSigner(signerOpt.get());
+                reqEntity.setDocument(docOpt.get());
+                reqEntity.setCreated(LocalDateTime.now());
+                requirementRepository.save(reqEntity);
+            } else {
+                log.warn("Signatário ou documento não encontrado localmente para persistir requisito de qualificação.");
+            }
+        });
+
+        // ── 2. Requisito de Autenticação ──────────────────────────────
+        AddRequirementCommand authentication = AddRequirementCommand.builder()
+                .signerId(command.signerId())
+                .documentId(command.documentId())
+                .action("provide_evidence")
+                .auth(auth)
+                .build();
+
+        Requirement authenticationReq = gateway.addRequirement(externalId, authentication);
+        log.info("Requisito de autenticação criado: {}", authenticationReq.getExternalId());
+
+        // Persistir requisito de autenticação no banco local
+        repository.findByExternalId(externalId).ifPresent(envelope -> {
+            Optional<SignerEntity>   signerOpt = signerRepository.findByExternalId(command.signerId());
+            Optional<DocumentEntity> docOpt   = documentRepository.findByExternalId(command.documentId());
+
+            if (signerOpt.isPresent() && docOpt.isPresent()) {
+                RequirementEntity reqEntity = new RequirementEntity();
+                reqEntity.setExternalId(authenticationReq.getExternalId());
+                reqEntity.setEnvelope(envelope);
+                reqEntity.setSigner(signerOpt.get());
+                reqEntity.setDocument(docOpt.get());
+                reqEntity.setCreated(LocalDateTime.now());
+                requirementRepository.save(reqEntity);
+            } else {
+                log.warn("Signatário ou documento não encontrado localmente para persistir requisito de autenticação.");
+            }
+        });
+
+        // ── 3. Ativar o envelope no provider ──────────────────────────
+        gateway.activateEnvelope(externalId);
+        log.info("Envelope {} ativado no provider {}", externalId, provider);
+
+        // ── 4. Atualizar status no banco local ────────────────────────
+        repository.findByExternalId(externalId).ifPresent(envelope ->
+                updateStatus(envelope, Status.ACTIVE, "API")
+        );
+
+    }
+
     private void updateStatus(EnvelopeEntity entity, Status newStatus, String source) {
         Status previousStatus = entity.getStatus();
         if (previousStatus != newStatus) {
@@ -241,4 +317,6 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         event.setOccurredAt(LocalDateTime.now());
         eventRepository.save(event);
     }
+
+
 }

@@ -1,10 +1,6 @@
 package com.signflow.application;
 
-import com.signflow.domain.command.AddDocumentCommand;
-import com.signflow.domain.command.AddRequirementCommand;
-import com.signflow.domain.command.AddSignerCommand;
-import com.signflow.domain.command.CreateEnvelopeCommand;
-import com.signflow.domain.command.UpdateEnvelopeCommand;
+import com.signflow.domain.command.*;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
@@ -27,4 +23,6 @@ public interface EnvelopeService {
     void activateEnvelope(String externalId, ProviderSignature provider);
     List<EnvelopeTimelineResponse> getTimeline(String externalId);
     Page<Envelope> listEnvelopes(Status status, Pageable pageable);
+    void activateEnvelopeComplete(ProviderSignature provider, String externalId, ActivateEnvelopeCommand command);
+
 }
