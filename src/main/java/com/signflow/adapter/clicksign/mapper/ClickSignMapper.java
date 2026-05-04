@@ -25,15 +25,15 @@ public class ClickSignMapper {
     );
 
     public Envelope toEnvelopeDomain(SignatureClickSignResponseDTO response) {
-        if (response == null || response.getData() == null) {
+        if (response == null || response.data() == null) {
             return null;
         }
-        ClickSignResponseDataDTO data = response.getData();
-        ClickSignResponseAttributesDTO attributes = data.getAttributes();
+        ClickSignResponseDataDTO data = response.data();
+        ClickSignResponseAttributesDTO attributes = data.attributes();
 
         Status domainStatus = null;
-        if (attributes != null && attributes.getStatus() != null) {
-            String clickSignStatus = attributes.getStatus().toLowerCase();
+        if (attributes != null && attributes.status() != null) {
+            String clickSignStatus = attributes.status().toLowerCase();
             domainStatus = STATUS_MAP.get(clickSignStatus);
             
             if (domainStatus == null) {
@@ -43,54 +43,54 @@ public class ClickSignMapper {
         }
 
         return Envelope.builder()
-                .externalId(data.getId())
-                .name(attributes != null ? attributes.getName() : null)
+                .externalId(data.id())
+                .name(attributes != null ? attributes.name() : null)
                 .status(domainStatus)
-                .created(attributes != null ? attributes.getCreated() : null)
-                .modified(attributes != null ? attributes.getModified() : null)
+                .created(attributes != null ? attributes.created() : null)
+                .modified(attributes != null ? attributes.modified() : null)
                 .build();
     }
 
     public Signer toSignerDomain(SignatureClickSignResponseDTO response) {
-        if (response == null || response.getData() == null) {
+        if (response == null || response.data() == null) {
             return null;
         }
-        ClickSignResponseDataDTO data = response.getData();
-        ClickSignResponseAttributesDTO attributes = data.getAttributes();
+        ClickSignResponseDataDTO data = response.data();
+        ClickSignResponseAttributesDTO attributes = data.attributes();
 
         return Signer.builder()
-                .externalId(data.getId())
-                .name(attributes != null ? attributes.getName() : null)
-                .created(attributes != null ? attributes.getCreated() : null)
-                .modified(attributes != null ? attributes.getModified() : null)
+                .externalId(data.id())
+                .name(attributes != null ? attributes.name() : null)
+                .created(attributes != null ? attributes.created() : null)
+                .modified(attributes != null ? attributes.modified() : null)
                 .build();
     }
 
     public Document toDocumentDomain(SignatureClickSignResponseDTO response) {
-        if (response == null || response.getData() == null) {
+        if (response == null || response.data() == null) {
             return null;
         }
-        ClickSignResponseDataDTO data = response.getData();
-        ClickSignResponseAttributesDTO attributes = data.getAttributes();
+        ClickSignResponseDataDTO data = response.data();
+        ClickSignResponseAttributesDTO attributes = data.attributes();
 
         return Document.builder()
-                .externalId(data.getId())
-                .created(attributes != null ? attributes.getCreated() : null)
-                .modified(attributes != null ? attributes.getModified() : null)
+                .externalId(data.id())
+                .created(attributes != null ? attributes.created() : null)
+                .modified(attributes != null ? attributes.modified() : null)
                 .build();
     }
 
     public Requirement toRequirementDomain(SignatureClickSignResponseDTO response) {
-        if (response == null || response.getData() == null) {
+        if (response == null || response.data() == null) {
             return null;
         }
-        ClickSignResponseDataDTO data = response.getData();
-        ClickSignResponseAttributesDTO attributes = data.getAttributes();
+        ClickSignResponseDataDTO data = response.data();
+        ClickSignResponseAttributesDTO attributes = data.attributes();
 
         return Requirement.builder()
-                .externalId(data.getId())
-                .created(attributes != null ? attributes.getCreated() : null)
-                .modified(attributes != null ? attributes.getModified() : null)
+                .externalId(data.id())
+                .created(attributes != null ? attributes.created() : null)
+                .modified(attributes != null ? attributes.modified() : null)
                 .build();
     }
 }

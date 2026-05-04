@@ -1,10 +1,11 @@
 package com.signflow.adapter.clicksign.dto;
 
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-public class ClickSignRequirementsRelationshipDTO {
-
-    private RelationshipDataDTO document;
-    private RelationshipDataDTO signer;
-}
+@Builder
+@Jacksonized
+public record ClickSignRequirementsRelationshipDTO(
+    RelationshipDataDTO document,
+    RelationshipDataDTO signer
+) {}

@@ -2,20 +2,17 @@ package com.signflow.adapter.clicksign.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
+@Builder
+@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class WebhookData {
-
+public record WebhookData(
     @JsonProperty("id")
-    private String id;              // externalId do envelope
-
+    String id,
     @JsonProperty("type")
-    private String type;            // "envelopes"
-
+    String type,
     @JsonProperty("attributes")
-    private WebhookAttributesDTO attributes;
-
-
-}
+    WebhookAttributesDTO attributes
+) {}

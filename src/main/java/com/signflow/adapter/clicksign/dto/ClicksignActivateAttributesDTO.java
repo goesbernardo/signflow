@@ -1,18 +1,19 @@
 package com.signflow.adapter.clicksign.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-public class ClicksignActivateAttributesDTO {
-
-    private String status;
-    private String name;
+@Builder
+@Jacksonized
+public record ClicksignActivateAttributesDTO(
+    String status,
+    String name,
     @JsonProperty("deadline_at")
-    private String deadlineAt;
-    private String locale;
+    String deadlineAt,
+    String locale,
     @JsonProperty("auto_close")
-    private boolean autoClose;
+    boolean autoClose,
     @JsonProperty("default_message")
-    private String defaultMessage;
-}
+    String defaultMessage
+) {}

@@ -1,8 +1,10 @@
 package com.signflow.adapter.clicksign.dto;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class SignatureClickSignResponseDTO extends SingleDataResponseDTO<ClickSignResponseDataDTO> {}
+@Builder
+@Jacksonized
+public record SignatureClickSignResponseDTO(
+    ClickSignResponseDataDTO data
+) {}

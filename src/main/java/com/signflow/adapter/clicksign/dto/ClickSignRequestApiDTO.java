@@ -1,30 +1,28 @@
 package com.signflow.adapter.clicksign.dto;
 
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-public class ClickSignRequestApiDTO<T> {
-
-    private T data;
+@Builder
+@Jacksonized
+public record ClickSignRequestApiDTO<T>(T data) {
 
     public static <A> ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<A, Void>> of(String type, A attributes) {
-        var dataDTO = new ClickSignRequestApiDataDTO<A, Void>();
-        dataDTO.setType(type);
-        dataDTO.setAttributes(attributes);
-
-        var dto = new ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<A, Void>>();
-        dto.setData(dataDTO);
-        return dto;
+        return ClickSignRequestApiDTO.<ClickSignRequestApiDataDTO<A, Void>>builder()
+                .data(ClickSignRequestApiDataDTO.<A, Void>builder()
+                        .type(type)
+                        .attributes(attributes)
+                        .build())
+                .build();
     }
 
     public static <A, R> ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<A, R>> of(String type, A attributes, R relationships) {
-        var dataDTO = new ClickSignRequestApiDataDTO<A, R>();
-        dataDTO.setType(type);
-        dataDTO.setAttributes(attributes);
-        dataDTO.setRelationships(relationships);
-
-        var dto = new ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<A, R>>();
-        dto.setData(dataDTO);
-        return dto;
+        return ClickSignRequestApiDTO.<ClickSignRequestApiDataDTO<A, R>>builder()
+                .data(ClickSignRequestApiDataDTO.<A, R>builder()
+                        .type(type)
+                        .attributes(attributes)
+                        .relationships(relationships)
+                        .build())
+                .build();
     }
 }

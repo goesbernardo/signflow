@@ -1,16 +1,16 @@
 package com.signflow.adapter.clicksign.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-public class ClickSignCreateSignEventsDTO {
-
+@Builder
+@Jacksonized
+public record ClickSignCreateSignEventsDTO(
     @JsonProperty("signature_request")
-    private String signatureRequest;
+    String signatureRequest,
     @JsonProperty("signature_reminder")
-    private String signatureReminder;
+    String signatureReminder,
     @JsonProperty("document_signed")
-    private String documentSigned;
-
-}
+    String documentSigned
+) {}
