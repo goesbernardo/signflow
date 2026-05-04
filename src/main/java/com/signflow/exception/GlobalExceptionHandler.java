@@ -7,6 +7,9 @@ import com.signflow.exception.domain.IntegrationException;
 import com.signflow.exception.domain.InvalidRequestException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,14 +19,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final MessageSource messageSource;
 
     @ExceptionHandler(InvalidRequestException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRequest(InvalidRequestException ex, HttpServletRequest request) {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_REQUEST.value())
-                .error("Requisição Inválida")
+                .error(getMessage("error.invalid_request"))
                 .message(ex.getMessage())
                 .path(request.getRequestURI())
                 .build();
@@ -48,7 +54,7 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_GATEWAY.value())
-                .error("Erro de integração")
+                .error(getMessage("error.integration"))
                 .message(ex.getMessage())
                 .path(request.getRequestURI())
                 .details(details)
@@ -62,11 +68,15 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.TOO_MANY_REQUESTS.value())
-                .error("Limite de requisições excedido")
-                .message("Você atingiu o limite de requisições permitidas. Por favor, tente novamente em breve.")
+                .error(getMessage("error.rate_limit"))
+                .message(getMessage("error.rate_limit_message"))
                 .path(request.getRequestURI())
                 .build();
 
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
+    }
+
+    private String getMessage(String code) {
+        return messageSource.getMessage(code, null, LocaleContextHolder.getLocale());
     }
 }

@@ -88,8 +88,22 @@ A API utiliza o header `provider` para rotear as chamadas para o adaptador corre
 - `PATCH /api/v1/signatures/{externalId}/activate`: Ativa o envelope para assinatura.
 - `GET /api/v1/signatures/{externalId}/timeline`: Retorna a trilha de auditoria (eventos) do envelope.
 
-## 🛡️ Resiliência
-A integração com provedores externos é protegida por um **Circuit Breaker** (Resilience4j). Caso um provedor (ex: ClickSign, Docusign, etc.) esteja instável, a aplicação aciona métodos de fallback para evitar falhas em cascata, retornando mensagens amigáveis de erro de integração. Cada provedor possui sua própria configuração de circuit breaker, garantindo isolamento entre falhas.
+## 🌍 Internacionalização (i18n)
+
+A API suporta múltiplos idiomas para as mensagens de erro e respostas do sistema. O idioma é resolvido com base no cabeçalho `Accept-Language` da requisição.
+
+- **Idiomas suportados:**
+  - Português (Brasil): `pt-BR` (Padrão)
+  - Inglês: `en-US` ou `en`
+  - Espanhol: `es-ES` ou `es`
+
+Exemplo de uso:
+```http
+Accept-Language: en-US
+```
+
+## 🛡️ Resiliência e Erros
+A integração com provedores externos é protegida por um **Circuit Breaker** (Resilience4j). Caso um provedor esteja instável, a aplicação aciona métodos de fallback que retornam mensagens de erro internacionalizadas. Cada provedor possui sua própria configuração de circuit breaker, garantindo isolamento entre falhas.
 
 ## 🗄️ Persistência e Auditoria
 A aplicação mantém um registro local de:
