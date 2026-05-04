@@ -36,10 +36,7 @@ public class AuthController {
                     examples = @ExampleObject(value = "{ \"token\": \"eyJhbGciOiJIUzI1NiJ9...\" }")))
     @ApiResponse(responseCode = "401", description = "Credenciais inválidas")
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Credenciais de acesso",
-                    content = @Content(examples = @ExampleObject(value = "{ \"username\": \"admin\", \"password\": \"admin123\" }")))
+    public ResponseEntity<LoginResponse> login(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Credenciais de acesso", content = @Content(examples = @ExampleObject(value = "{ \"username\": \"admin\", \"password\": \"admin123\" }")))
             @RequestBody LoginRequest request) {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 

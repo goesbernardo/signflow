@@ -2,12 +2,12 @@
 -- SignFlow — Migration V3
 -- Corrige dois problemas da V1:
 -- 1. Remove o INSERT com placeholders que falha no Render
---    (ADMIN_USERNAME/ADMIN_PASSWORD não são variáveis do Flyway)
+--    (Placeholder replacement causava erro na migração)
 -- 2. Adiciona colunas que as entidades Java esperam encontrar
 -- ================================================================
 
--- O INSERT da V1 falhou porque ${admin_username} e ${admin_password}
--- são placeholders do Flyway, não variáveis de ambiente.
+-- O INSERT da V1 falhou porque os placeholders
+-- são do Flyway, não variáveis de ambiente.
 -- Usuários são criados exclusivamente via create-user.sh no servidor.
 
 -- Adicionar coluna 'role' que UserEntity referencia via getAuthorities()
@@ -26,15 +26,15 @@ ALTER TABLE users
 
 -- Adicionar coluna 'version' no envelope para optimistic locking
 -- (evita race condition entre webhook e API atualizando status simultâneo)
-ALTER TABLE ENVELOPE_REQUEST
+ALTER TABLE envelope_request
     ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
 
 -- Índices para performance nas queries mais comuns
 -- (podem já existir na V1 de outros deploys — IF NOT EXISTS protege)
-CREATE INDEX IF NOT EXISTS idx_envelope_user_id    ON ENVELOPE_REQUEST(user_id);
-CREATE INDEX IF NOT EXISTS idx_envelope_status     ON ENVELOPE_REQUEST(status);
-CREATE INDEX IF NOT EXISTS idx_envelope_provider   ON ENVELOPE_REQUEST(provider);
-CREATE INDEX IF NOT EXISTS idx_envelope_ext_id     ON ENVELOPE_REQUEST(external_id);
-CREATE INDEX IF NOT EXISTS idx_event_envelope_id   ON ENVELOPE_EVENT(envelope_id);
-CREATE INDEX IF NOT EXISTS idx_signer_envelope     ON SIGNER(envelope_id);
-CREATE INDEX IF NOT EXISTS idx_document_envelope   ON DOCUMENT(envelope_id);
+CREATE INDEX IF NOT EXISTS idx_envelope_user_id    ON envelope_request(user_id);
+CREATE INDEX IF NOT EXISTS idx_envelope_status     ON envelope_request(status);
+CREATE INDEX IF NOT EXISTS idx_envelope_provider   ON envelope_request(provider);
+CREATE INDEX IF NOT EXISTS idx_envelope_ext_id     ON envelope_request(external_id);
+CREATE INDEX IF NOT EXISTS idx_event_envelope_id   ON envelope_event(envelope_id);
+CREATE INDEX IF NOT EXISTS idx_signer_envelope     ON signer(envelope_id);
+CREATE INDEX IF NOT EXISTS idx_document_envelope   ON document(envelope_id);

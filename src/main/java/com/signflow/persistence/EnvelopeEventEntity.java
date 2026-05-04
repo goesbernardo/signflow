@@ -9,7 +9,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ENVELOPE_EVENT")
+@Table(name = "envelope_event")
 @Getter
 @Setter
 @NoArgsConstructor
