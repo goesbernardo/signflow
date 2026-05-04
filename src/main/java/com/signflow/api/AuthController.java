@@ -38,9 +38,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Credenciais de acesso", content = @Content(examples = @ExampleObject(value = "{ \"username\": \"admin\", \"password\": \"admin123\" }")))
             @RequestBody LoginRequest request) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.username(), request.password()));
 
-        final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(request.username());
         final String jwt = jwtUtils.generateToken(userDetails);
 
         return ResponseEntity.ok(LoginResponse.builder().token(jwt).build());

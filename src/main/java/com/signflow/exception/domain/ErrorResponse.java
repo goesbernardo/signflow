@@ -1,20 +1,18 @@
 package com.signflow.exception.domain;
 
 import lombok.Builder;
-import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Getter
 @Builder
-public class ErrorResponse {
-
-    private LocalDateTime timestamp;
-    private int status;
-    private String error;
-    private String message;
-    private String path;
-
-    private List<ErroDetail> details;
-}
+@Jacksonized
+public record ErrorResponse(
+    LocalDateTime timestamp,
+    int status,
+    String error,
+    String message,
+    String path,
+    List<ErroDetail> details
+) {}

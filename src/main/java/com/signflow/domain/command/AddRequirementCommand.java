@@ -1,16 +1,12 @@
 package com.signflow.domain.command;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AddRequirementCommand {
-    private String signerId;
-    private String documentId;
-    private String action; // sign, approve, acknowledge, etc
-}
+@Jacksonized
+public record AddRequirementCommand(
+    String signerId,
+    String documentId,
+    String action
+) {}

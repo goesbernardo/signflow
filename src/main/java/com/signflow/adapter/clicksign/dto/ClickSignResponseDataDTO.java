@@ -1,15 +1,12 @@
 package com.signflow.adapter.clicksign.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@AllArgsConstructor
-@NoArgsConstructor
-@Getter
-@Setter
-public class ClickSignResponseDataDTO extends BaseDataDTO {
-
-    private ClickSignResponseAttributesDTO attributes;
-}
+@Builder
+@Jacksonized
+public record ClickSignResponseDataDTO(
+    String id,
+    String type,
+    ClickSignResponseAttributesDTO attributes
+) {}

@@ -1,20 +1,16 @@
 package com.signflow.api.dto;
 
 import com.signflow.enums.Status;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.extern.jackson.Jacksonized;
 
 import java.time.LocalDateTime;
 
-@Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class EnvelopeTimelineResponse {
-    private Status previousStatus;
-    private Status newStatus;
-    private String source;
-    private LocalDateTime occurredAt;
-}
+@Jacksonized
+public record EnvelopeTimelineResponse(
+    Status previousStatus,
+    Status newStatus,
+    String source,
+    LocalDateTime occurredAt
+) {}

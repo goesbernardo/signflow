@@ -47,9 +47,10 @@ public class AuthIntegrationTest {
 
     @Test
     void shouldLoginSuccessfullyWithAdminCredentials() throws Exception {
-        LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setUsername("admin");
-        loginRequest.setPassword("admin123");
+        LoginRequest loginRequest = LoginRequest.builder()
+                .username("admin")
+                .password("admin123")
+                .build();
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -60,9 +61,10 @@ public class AuthIntegrationTest {
 
     @Test
     void shouldReturnUnauthorizedWithInvalidCredentials() throws Exception {
-        LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setUsername("admin");
-        loginRequest.setPassword("wrongpassword");
+        LoginRequest loginRequest = LoginRequest.builder()
+                .username("admin")
+                .password("wrongpassword")
+                .build();
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

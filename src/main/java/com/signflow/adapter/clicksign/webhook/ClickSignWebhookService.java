@@ -54,20 +54,20 @@ public class ClickSignWebhookService {
             return;
         }
 
-        if (payload.getData() == null) {
+        if (payload.data() == null) {
             log.warn("Webhook ClickSign recebido sem campo 'data'. Ignorando.");
             return;
         }
 
-        String externalId = payload.getData().getId();
+        String externalId = payload.data().id();
         if (externalId == null || externalId.isBlank()) {
             log.warn("Webhook ClickSign sem externalId. Ignorando.");
             return;
         }
 
         // Mapear status da ClickSign para o domínio
-        String rawStatus = Optional.ofNullable(payload.getData().getAttributes())
-                .map(WebhookAttributesDTO::getStatus)
+        String rawStatus = Optional.ofNullable(payload.data().attributes())
+                .map(WebhookAttributesDTO::status)
                 .map(String::toLowerCase)
                 .orElse(null);
 

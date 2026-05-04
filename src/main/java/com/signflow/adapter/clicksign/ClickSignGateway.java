@@ -33,7 +33,7 @@ public class ClickSignGateway implements ESignatureGateway {
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "createEnvelopeFallback")
     public Envelope createEnvelope(CreateEnvelopeCommand cmd) {
-        ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> clickSignBody = ClickSignRequestApiDTO.of("envelopes", new ClickSignEnvelopeAttributesDTO(cmd.getName()));
+        ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> clickSignBody = ClickSignRequestApiDTO.of("envelopes", ClickSignEnvelopeAttributesDTO.builder().name(cmd.name()).build());
         log.info("Enviando requisição para ClickSign: {}", clickSignBody);
         var response = clickSignClient.createEnvelope(clickSignBody);
         log.info("Resposta recebida da ClickSign: {}", response);
@@ -48,7 +48,7 @@ public class ClickSignGateway implements ESignatureGateway {
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "updateEnvelopeFallback")
     public Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd) {
-        ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> clickSignBody = ClickSignRequestApiDTO.of("envelopes", new ClickSignEnvelopeAttributesDTO(cmd.getName()));
+        ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignEnvelopeAttributesDTO, Void>> clickSignBody = ClickSignRequestApiDTO.of("envelopes", ClickSignEnvelopeAttributesDTO.builder().name(cmd.name()).build());
         log.info("Enviando requisição de atualização para ClickSign: {}", clickSignBody);
         var response = clickSignClient.updateEnvelope(externalId, clickSignBody);
         log.info("Resposta de atualização recebida da ClickSign: {}", response);
@@ -74,23 +74,24 @@ public class ClickSignGateway implements ESignatureGateway {
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addSignerFallback")
     public Signer addSigner(String envelopeId, AddSignerCommand cmd) {
-        ClickSignCreateSignAttributesDTO attributes = new ClickSignCreateSignAttributesDTO();
-        attributes.setName(cmd.getName() != null ? cmd.getName().trim() : null);
-        attributes.setEmail(cmd.getEmail());
-        attributes.setGroup("1");
+        String documentation = cmd.documentation();
         
-        String documentation = cmd.getDocumentation();
-        attributes.setDocumentation(documentation);
-        
-        attributes.setHasDocumentation(cmd.getHasDocumentation() != null ? cmd.getHasDocumentation() : (documentation != null && !documentation.isEmpty()));
-        attributes.setRefusable(false);
-        attributes.setLocationRequiredEnabled(false);
+        ClickSignCreateSignEventsDTO events = ClickSignCreateSignEventsDTO.builder()
+                .signatureRequest(cmd.requestSignature() != null ? cmd.requestSignature() : "email")
+                .signatureReminder("none")
+                .documentSigned(cmd.delivery() != null ? cmd.delivery() : "email")
+                .build();
 
-        ClickSignCreateSignEventsDTO events = new ClickSignCreateSignEventsDTO();
-        events.setSignatureRequest(cmd.getRequestSignature() != null ? cmd.getRequestSignature() : "email"); // Valor padrao para o fluxo
-        events.setSignatureReminder("none");
-        events.setDocumentSigned(cmd.getDelivery() != null ? cmd.getDelivery() : "email");
-        attributes.setCommunicateEvents(events);
+        ClickSignCreateSignAttributesDTO attributes = ClickSignCreateSignAttributesDTO.builder()
+                .name(cmd.name() != null ? cmd.name().trim() : null)
+                .email(cmd.email())
+                .group("1")
+                .documentation(documentation)
+                .hasDocumentation(cmd.hasDocumentation() != null ? cmd.hasDocumentation() : (documentation != null && !documentation.isEmpty()))
+                .refusable(false)
+                .locationRequiredEnabled(false)
+                .communicateEvents(events)
+                .build();
 
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignCreateSignAttributesDTO, Void>> body = ClickSignRequestApiDTO.of("signers", attributes);
         log.info("Adicionando signatário ao envelope {}: {}", envelopeId, body);
@@ -107,9 +108,10 @@ public class ClickSignGateway implements ESignatureGateway {
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addDocumentFallback")
     public Document addDocument(String envelopeId, AddDocumentCommand cmd) {
-        ClickSignCreateDocumentAttributesDTO attributes = new ClickSignCreateDocumentAttributesDTO();
-        attributes.setFilename(cmd.getFilename());
-        attributes.setContentBase64(cmd.getContentBase64());
+        ClickSignCreateDocumentAttributesDTO attributes = ClickSignCreateDocumentAttributesDTO.builder()
+                .filename(cmd.filename())
+                .contentBase64(cmd.contentBase64())
+                .build();
 
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignCreateDocumentAttributesDTO, Void>> body = ClickSignRequestApiDTO.of("documents", attributes);
         return mapper.toDocumentDomain(clickSignClient.createDocument(envelopeId, body));
@@ -123,12 +125,14 @@ public class ClickSignGateway implements ESignatureGateway {
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addRequirementFallback")
     public Requirement addRequirement(String envelopeId, AddRequirementCommand cmd) {
-        ClickSignRequirementsAttributesDTO attributes = new ClickSignRequirementsAttributesDTO();
-        attributes.setAction(cmd.getAction() != null ? cmd.getAction() : "sign");
+        ClickSignRequirementsAttributesDTO attributes = ClickSignRequirementsAttributesDTO.builder()
+                .action(cmd.action() != null ? cmd.action() : "sign")
+                .build();
 
-        ClickSignRequirementsRelationshipDTO relationships = new ClickSignRequirementsRelationshipDTO();
-        relationships.setDocument(new RelationshipDataDTO(new DataIdDTO("documents", cmd.getDocumentId())));
-        relationships.setSigner(new RelationshipDataDTO(new DataIdDTO("signers", cmd.getSignerId())));
+        ClickSignRequirementsRelationshipDTO relationships = ClickSignRequirementsRelationshipDTO.builder()
+                .document(RelationshipDataDTO.builder().data(DataIdDTO.builder().type("documents").id(cmd.documentId()).build()).build())
+                .signer(RelationshipDataDTO.builder().data(DataIdDTO.builder().type("signers").id(cmd.signerId()).build()).build())
+                .build();
 
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignRequirementsAttributesDTO, ClickSignRequirementsRelationshipDTO>> body = ClickSignRequestApiDTO.of("requirements", attributes, relationships);
         var response = clickSignClient.createRequirements(envelopeId, body);
@@ -143,8 +147,9 @@ public class ClickSignGateway implements ESignatureGateway {
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "activateEnvelopeFallback")
     public void activateEnvelope(String envelopeId) {
-        ClicksignActivateAttributesDTO attributes = new ClicksignActivateAttributesDTO();
-        attributes.setStatus("active");
+        ClicksignActivateAttributesDTO attributes = ClicksignActivateAttributesDTO.builder()
+                .status("active")
+                .build();
         ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClicksignActivateAttributesDTO, Void>> body = ClickSignRequestApiDTO.of("envelopes", attributes);
         clickSignClient.activateEnvelope(envelopeId, body);
     }

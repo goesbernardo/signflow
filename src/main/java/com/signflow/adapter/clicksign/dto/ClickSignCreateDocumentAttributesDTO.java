@@ -2,15 +2,15 @@ package com.signflow.adapter.clicksign.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-public class ClickSignCreateDocumentAttributesDTO {
-
+@Builder
+@Jacksonized
+public record ClickSignCreateDocumentAttributesDTO(
     @NotBlank(message = "O nome do arquivo é obrigatório.")
-    private String filename;
-
+    String filename,
     @NotBlank(message = "O conteúdo base64 é obrigatório.")
     @JsonProperty("content_base64")
-    private String contentBase64;
-}
+    String contentBase64
+) {}

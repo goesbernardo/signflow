@@ -1,23 +1,21 @@
 package com.signflow.adapter.clicksign.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-public class ClickSignCreateSignAttributesDTO {
-
-    private String name;
-    private String email;
-    private String documentation;
+@Builder
+@Jacksonized
+public record ClickSignCreateSignAttributesDTO(
+    String name,
+    String email,
+    String documentation,
     @JsonProperty("has_documentation")
-    private Boolean hasDocumentation;
-    private Boolean refusable;
-    private String group;
+    Boolean hasDocumentation,
+    Boolean refusable,
+    String group,
     @JsonProperty("location_required_enabled")
-    private Boolean locationRequiredEnabled;
+    Boolean locationRequiredEnabled,
     @JsonProperty("communicate_events")
-    private ClickSignCreateSignEventsDTO communicateEvents;
-
-
-
-}
+    ClickSignCreateSignEventsDTO communicateEvents
+) {}

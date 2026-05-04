@@ -1,15 +1,8 @@
 package com.signflow.domain.command;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class CreateEnvelopeCommand {
-    private String name;
-    private WebhookCommand webhook;
-}
+@Jacksonized
+public record CreateEnvelopeCommand(String name, WebhookCommand webhook) {}

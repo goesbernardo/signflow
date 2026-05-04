@@ -1,13 +1,12 @@
 package com.signflow.exception.domain;
 
 import lombok.Builder;
-import lombok.Data;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
 @Builder
-public class ErroDetail {
-
-    private String field;
-    private String message;
-    private String code;
-}
+@Jacksonized
+public record ErroDetail(
+    String field,
+    String message,
+    String code
+) {}

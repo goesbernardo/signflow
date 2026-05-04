@@ -48,7 +48,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         EnvelopeEntity entity = new EnvelopeEntity();
         entity.setStatus(Status.PROCESSING);
         entity.setProvider(provider);
-        entity.setName(cmd.getName());
+        entity.setName(cmd.name());
         entity.setCreated(LocalDateTime.now());
         
         String currentPrincipalName = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -85,7 +85,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
             SignerEntity signerEntity = new SignerEntity();
             signerEntity.setExternalId(signer.getExternalId());
             signerEntity.setName(signer.getName());
-            signerEntity.setEmail(cmd.getEmail());
+            signerEntity.setEmail(cmd.email());
             signerEntity.setEnvelope(envelope);
             signerEntity.setCreated(LocalDateTime.now());
             signerRepository.save(signerEntity);
@@ -104,7 +104,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         repository.findByExternalId(externalId).ifPresent(envelope -> {
             DocumentEntity documentEntity = new DocumentEntity();
             documentEntity.setExternalId(document.getExternalId());
-            documentEntity.setFilename(cmd.getFilename());
+            documentEntity.setFilename(cmd.filename());
             documentEntity.setEnvelope(envelope);
             documentEntity.setCreated(LocalDateTime.now());
             documentRepository.save(documentEntity);
@@ -140,7 +140,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         Envelope envelope = gateway.updateEnvelope(externalId, cmd);
         
         repository.findByExternalId(externalId).ifPresent(entity -> {
-            entity.setName(cmd.getName());
+            entity.setName(cmd.name());
             repository.save(entity);
         });
         
@@ -155,8 +155,8 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         Requirement requirement = gateway.addRequirement(externalId, cmd);
 
         repository.findByExternalId(externalId).ifPresent(envelope -> {
-            var signerOpt = signerRepository.findByExternalId(cmd.getSignerId());
-            var docOpt = documentRepository.findByExternalId(cmd.getDocumentId());
+            var signerOpt = signerRepository.findByExternalId(cmd.signerId());
+            var docOpt = documentRepository.findByExternalId(cmd.documentId());
 
             if (signerOpt.isPresent() && docOpt.isPresent()) {
                 RequirementEntity requirementEntity = new RequirementEntity();

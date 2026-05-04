@@ -54,9 +54,10 @@ public class AuthControllerTest {
 
     @Test
     void shouldLoginSuccessfully() throws Exception {
-        LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setUsername("admin");
-        loginRequest.setPassword("admin123");
+        LoginRequest loginRequest = LoginRequest.builder()
+                .username("admin")
+                .password("admin123")
+                .build();
 
         org.springframework.security.core.userdetails.UserDetails userDetails = mock(org.springframework.security.core.userdetails.UserDetails.class);
         when(userDetailsService.loadUserByUsername("admin")).thenReturn(userDetails);

@@ -59,8 +59,9 @@ public class SignatureControllerTest {
     @WithMockUser
     void shouldCreateEnvelopeSuccessfully() throws Exception {
         // Arrange
-        CreateEnvelopeCommand command = new CreateEnvelopeCommand();
-        command.setName("Test Contract");
+        CreateEnvelopeCommand command = CreateEnvelopeCommand.builder()
+                .name("Test Contract")
+                .build();
 
         Envelope mockResponse = Envelope.builder()
                 .externalId(UUID.randomUUID().toString())
@@ -86,8 +87,9 @@ public class SignatureControllerTest {
     @Test
     @WithMockUser
     void shouldReturnBadRequestWhenProviderHeaderIsMissing() throws Exception {
-        CreateEnvelopeCommand command = new CreateEnvelopeCommand();
-        command.setName("Test Contract");
+        CreateEnvelopeCommand command = CreateEnvelopeCommand.builder()
+                .name("Test Contract")
+                .build();
 
         mockMvc.perform(post("/api/v1/signatures")
                         .contentType(MediaType.APPLICATION_JSON)

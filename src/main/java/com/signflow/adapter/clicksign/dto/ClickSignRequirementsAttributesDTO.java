@@ -1,10 +1,10 @@
 package com.signflow.adapter.clicksign.dto;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
+@Builder
+@Jacksonized
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ClickSignRequirementsAttributesDTO {
-
-    private String action;
-}
+public record ClickSignRequirementsAttributesDTO(String action) {}

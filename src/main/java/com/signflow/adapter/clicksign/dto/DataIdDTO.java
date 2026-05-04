@@ -1,14 +1,11 @@
 package com.signflow.adapter.clicksign.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-public class DataIdDTO {
-
-    private String type; // "documents" ou "signers"
-    private String id;
-}
+@Builder
+@Jacksonized
+public record DataIdDTO(
+    String type,
+    String id
+) {}

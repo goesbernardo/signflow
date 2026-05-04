@@ -2,22 +2,20 @@ package com.signflow.adapter.clicksign.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import lombok.Builder;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
+@Builder
+@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class WebhookAttributesDTO {
-
+public record WebhookAttributesDTO(
     @JsonProperty("name")
-    private String name;
-
+    String name,
     @JsonProperty("status")
-    private String status;          // "running" | "completed" | "canceled" | "draft"
-
+    String status,
     @JsonProperty("created_at")
-    private String createdAt;
-
+    String createdAt,
     @JsonProperty("updated_at")
-    private String updatedAt;
-}
+    String updatedAt
+) {}
 
