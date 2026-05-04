@@ -27,6 +27,8 @@ public class EnvelopeEntity {
     private ProviderSignature provider;
     @Enumerated(EnumType.STRING)
     private Status status;
+    @Column(name = "provider_status")
+    private String providerStatus;
     private LocalDateTime created;
     @Column(name = "external_id",unique = true)
     private String externalId;

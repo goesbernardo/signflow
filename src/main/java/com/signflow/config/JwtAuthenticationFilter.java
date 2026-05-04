@@ -29,13 +29,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Rotas públicas — passar direto sem tentar validar JWT
         String path = request.getServletPath();
+        log.debug("Processando requisição no JwtAuthenticationFilter para path: {}", path);
+
+        // Se o path for vazio, tentar extrair do URI
+        if (path == null || path.isEmpty()) {
+            path = request.getRequestURI().substring(request.getContextPath().length());
+        }
+
         if (path.startsWith("/api/v1/auth/")
                 || path.startsWith("/api/v1/webhook/")
+                || path.contains("/webhook/")
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/api-docs")
                 || path.startsWith("/actuator/health")
                 || path.equals("/error")
                 || path.startsWith("/actuator/info")) {
+            log.debug("Path {} é público, ignorando validação JWT", path);
             filterChain.doFilter(request, response);
             return;
         }

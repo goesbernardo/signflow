@@ -103,19 +103,19 @@ public class SignatureController {
 
     @PostMapping("/{externalId}/signers")
     @RateLimiter(name = "userRateLimiter")
-    @Operation(summary = "Adicionar signatário", description = "Adiciona um novo signatário ao envelope para futura assinatura.")
+    @Operation(summary = "Adicionar signatários", description = "Adiciona um ou mais novos signatários ao envelope para futura assinatura.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Signatário adicionado com sucesso"),
+            @ApiResponse(responseCode = "201", description = "Signatários adicionados com sucesso"),
             @ApiResponse(responseCode = "400", description = "Requisição inválida"),
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "429", description = "Limite de requisições excedido"),
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
-    public ResponseEntity<Signer> addSigner(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-                                            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"João Silva\", \"email\": \"joao.silva@email.com\", \"documentation\": \"123.456.789-00\", \"hasDocumentation\": true, \"delivery\": \"email\" }")))
-                                            @RequestBody @Valid AddSignerCommand command) {
-        Signer response = envelopeService.addSigner(externalId, command, provider);
-        log.info("assinante adicionado  {}: {}", provider, externalId);
+    public ResponseEntity<List<Signer>> addSigner(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
+                                            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "[{ \"name\": \"João Silva\", \"email\": \"joao.silva@email.com\", \"documentation\": \"123.456.789-00\", \"hasDocumentation\": true, \"delivery\": \"email\" }]")))
+                                            @RequestBody @Valid List<AddSignerCommand> commands) {
+        List<Signer> response = envelopeService.addSigners(externalId, commands, provider);
+        log.info("{} assinante(s) adicionado(s)  {}: {}", response.size(), provider, externalId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

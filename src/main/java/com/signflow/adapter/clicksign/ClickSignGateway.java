@@ -83,11 +83,16 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t, ERR_FETCH_FAILED);
     }
 
-    // ── addSigner ─────────────────────────────────────────────────────────────
-
+    // ── addSigners ────────────────────────────────────────────────────────────
     @Override
+    public List<Signer> addSigners(String envelopeId, List<AddSignerCommand> commands) {
+        return commands.stream()
+                .map(cmd -> this.addSignerInternal(envelopeId, cmd))
+                .toList();
+    }
+
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addSignerFallback")
-    public Signer addSigner(String envelopeId, AddSignerCommand cmd) {
+    private Signer addSignerInternal(String envelopeId, AddSignerCommand cmd) {
         String documentation = cmd.documentation();
 
         ClickSignCreateSignEventsDTO events = ClickSignCreateSignEventsDTO.builder()
