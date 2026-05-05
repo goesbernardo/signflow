@@ -6,13 +6,14 @@ O **SignFlow** é uma API de gerenciamento de assinaturas eletrônicas, projetad
 
 ## 🚀 Tecnologias
 
-- **Java 17** e **Spring Boot 3.3.4**
+- **Java 17** (Utilizando **Records** para DTOs imutáveis) e **Spring Boot 3.3.4**
 - **Spring Security** com **JWT (JSON Web Token)**
 - **Spring Data JPA** com **PostgreSQL**
 - **OpenFeign** para integrações de API
 - **Resilience4j** (Circuit Breaker) para tolerância a falhas
 - **SpringDoc OpenAPI** (Swagger) para documentação
 - **Docker** e **Docker Compose**
+- **Lombok** com **@Builder** e **@Jacksonized** para Records
 
 ## 🏗️ Arquitetura
 
@@ -82,11 +83,17 @@ A API utiliza o header `provider` para rotear as chamadas para o adaptador corre
 - `POST /api/v1/signatures`: Cria um novo envelope.
 - `GET /api/v1/signatures/{externalId}`: Busca detalhes de um envelope.
 - `PATCH /api/v1/signatures/{externalId}`: Edita um envelope.
-- `POST /api/v1/signatures/{externalId}/signers`: Adiciona um signatário.
+- `POST /api/v1/signatures/{externalId}/signers`: Adiciona um ou mais signatários (suporta lote).
 - `POST /api/v1/signatures/{externalId}/documents`: Adiciona um documento.
-- `POST /api/v1/signatures/{externalId}/requirements`: Vincula signatário a um documento.
-- `PATCH /api/v1/signatures/{externalId}/activate`: Ativa o envelope para assinatura.
+- `POST /api/v1/signatures/{externalId}/requirements`: Vincula signatário a um documento (com suporte a Autenticação, Rubrica e Qualificação).
+- `PUT /api/v1/signatures/{externalId}/activate`: Ativa o envelope para assinatura (Retorno 204 - Processamento via Webhook).
 - `GET /api/v1/signatures/{externalId}/timeline`: Retorna a trilha de auditoria (eventos) do envelope.
+
+### Aceite via WhatsApp
+- `POST /api/v1/whatsapp-acceptance`: Cria um novo fluxo de aceite simplificado via WhatsApp.
+
+### Webhooks
+- `POST /api/v1/webhook/clicksign`: Endpoint público para recebimento de notificações de eventos da ClickSign (protegido por validação HMAC).
 
 ## 🌍 Internacionalização (i18n)
 
@@ -118,6 +125,7 @@ A integração com provedores externos é protegida por um **Circuit Breaker** (
 
 ## 🗄️ Persistência e Auditoria
 A aplicação mantém um registro local de:
-- **Envelopes:** Status, ID externo e usuário criador.
+- **Envelopes:** Status interno, status original do provedor (`provider_status`), ID externo e usuário criador.
 - **Signatários e Documentos:** Vinculados aos envelopes.
-- **Trilha de Auditoria:** Eventos imutáveis que registram cada mudança de status do envelope (Ex: `PROCESSING` -> `SUCCESS`).
+- **Trilha de Auditoria:** Eventos imutáveis que registram cada mudança de status do envelope, capturando o status anterior, o novo status e o status bruto enviado pelo provedor via webhook.
+- **Webhooks:** Suporte a múltiplos formatos de payload (JSON:API e legado para WhatsApp), garantindo a integridade dos dados via auditoria.
