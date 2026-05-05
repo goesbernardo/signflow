@@ -1,9 +1,8 @@
 package com.signflow.adapter.clicksign.webhook;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.signflow.adapter.clicksign.dto.ClickSignWebhookPayloadDTO;
 import com.signflow.adapter.clicksign.dto.WebhookAttributesDTO;
-import com.signflow.adapter.clicksign.dto.WebhookData;
+import com.signflow.api.dto.ClickSignWebhookRootPayloadDTO;
 import com.signflow.enums.Status;
 import com.signflow.persistence.EnvelopeEntity;
 import com.signflow.persistence.EnvelopeEventEntity;
@@ -39,20 +38,12 @@ public class ClickSignWebhookService {
     /**
      * Processa o payload em background após o controller já ter retornado 200.
      *
-     * @param rawPayload corpo bruto recebido da ClickSign
+     * @param payload objeto já desserializado pelo controller
      */
     @Async
     @Transactional
-    public void process(String rawPayload) {
+    public void process(ClickSignWebhookRootPayloadDTO payload) {
         log.info("Processando webhook ClickSign...");
-
-        ClickSignWebhookPayloadDTO payload;
-        try {
-            payload = objectMapper.readValue(rawPayload, ClickSignWebhookPayloadDTO.class);
-        } catch (Exception e) {
-            log.error("Falha ao desserializar payload do webhook ClickSign: {}", rawPayload, e);
-            return;
-        }
 
         if (payload.data() == null) {
             log.warn("Webhook ClickSign recebido sem campo 'data'. Ignorando.");
