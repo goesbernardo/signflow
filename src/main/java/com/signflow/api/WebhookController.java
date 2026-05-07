@@ -23,16 +23,26 @@ public class WebhookController {
 
     private final ClickSignWebhookService         envelopeWebhookService;
     private final ClickSignWhatsAppWebhookService whatsAppWebhookService;
+    private final ClickSignHmacValidator          hmacValidator;
     private final ObjectMapper                    objectMapper;
 
     @PostMapping("/clicksign")
     @Operation(summary = "Webhook ClickSign",
             description = "Recebe eventos de envelopes e aceites via WhatsApp da ClickSign.")
-    public ResponseEntity<Void> clicksign(@RequestBody String rawPayload) {
+    public ResponseEntity<Void> clicksign(@RequestHeader(value = "X-Clicksign-Hmac-Sha256", required = false) String hmac,
+                                          @RequestBody String rawPayload) {
 
-        log.info("Recebendo webhook ClickSign{}", rawPayload);
+        log.info("Recebendo webhook ClickSign");
+
+        // Em desenvolvimento com ngrok, a ClickSign sandbox pode não enviar HMAC
+        // Só valida se o header estiver presente
+        if (hmac != null && !hmacValidator.isValid(hmac, rawPayload)) {
+            log.warn("Falha na validação HMAC para o webhook ClickSign.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
         routeToService(rawPayload);
-        return ResponseEntity.ok().build();
+           return ResponseEntity.ok().build();
     }
 
     private void routeToService(String rawPayload) {

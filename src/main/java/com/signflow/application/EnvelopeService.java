@@ -18,11 +18,21 @@ public interface EnvelopeService {
     Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd, ProviderSignature provider);
     Envelope getEnvelope(String externalId, ProviderSignature provider);
     List<Signer> addSigners(String externalId, List<AddSignerCommand> commands, ProviderSignature provider);
+    List<Signer> getSigners(String externalId, ProviderSignature provider);
+    Signer getSigner(String externalId, String signerId, ProviderSignature provider);
+    void deleteSigner(String externalId, String signerId, ProviderSignature provider);
     Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider);
-    Requirement addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider);
+    List<Document> getDocuments(String externalId, ProviderSignature provider);
+    Document getDocument(String documentId, ProviderSignature provider);
+    Document updateDocument(String documentId, UpdateDocumentCommand cmd, ProviderSignature provider);
+    void deleteDocument(String documentId, ProviderSignature provider);
+    void addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider);
+    List<Requirement> getRequirements(String externalId, ProviderSignature provider);
+    Requirement getRequirement(String requirementId, ProviderSignature provider);
+    void deleteRequirement(String requirementId, ProviderSignature provider);
     void activateEnvelope(String externalId, ProviderSignature provider);
     List<EnvelopeTimelineResponse> getTimeline(String externalId);
     Page<Envelope> listEnvelopes(Status status, Pageable pageable);
-    void activateEnvelopeComplete(ProviderSignature provider, String externalId, ActivateEnvelopeCommand command);
+    Envelope createFullEnvelope(CreateFullEnvelopeCommand cmd, ProviderSignature provider);
 
 }

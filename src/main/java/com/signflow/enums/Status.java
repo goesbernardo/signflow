@@ -9,5 +9,7 @@ public enum Status {
     DRAFT,
     ACTIVE,
     CANCELED,
-    CLOSED
+    CLOSED,
+    EXPIRED,   
+    REFUSED
 }

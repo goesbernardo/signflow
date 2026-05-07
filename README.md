@@ -88,6 +88,7 @@ A API utiliza o header `provider` para rotear as chamadas para o adaptador corre
 - `POST /api/v1/signatures/{externalId}/requirements`: Vincula signatário a um documento (com suporte a Autenticação, Rubrica e Qualificação).
 - `PUT /api/v1/signatures/{externalId}/activate`: Ativa o envelope para assinatura (Retorno 204 - Processamento via Webhook).
 - `GET /api/v1/signatures/{externalId}/timeline`: Retorna a trilha de auditoria (eventos) do envelope.
+- `POST /api/v1/signatures/full`: **(Novo!)** Orquestra a criação completa de um envelope (documentos, signatários, requisitos e ativação) em uma única chamada.
 
 ### Aceite via WhatsApp
 - `POST /api/v1/whatsapp-acceptance`: Cria um novo fluxo de aceite simplificado via WhatsApp.

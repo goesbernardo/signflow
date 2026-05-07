@@ -1,7 +1,11 @@
 package com.signflow.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.signflow.adapter.clicksign.dto.WebhookAttributesDTO;
 import lombok.Builder;
 import lombok.extern.jackson.Jacksonized;
@@ -25,6 +29,7 @@ import lombok.extern.jackson.Jacksonized;
 @Builder
 @Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClickSignWebhookRootPayloadDTO(
 
         // Formato JSON:API (envelopes e novos webhooks)
@@ -38,6 +43,7 @@ public record ClickSignWebhookRootPayloadDTO(
     @Builder
     @Jacksonized
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record WebhookData(
             String id,
             String type,
@@ -47,6 +53,7 @@ public record ClickSignWebhookRootPayloadDTO(
     @Builder
     @Jacksonized
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record EventWrapper(
             String name
     ) {}
@@ -54,6 +61,7 @@ public record ClickSignWebhookRootPayloadDTO(
     @Builder
     @Jacksonized
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record AcceptanceData(
             String key,
             String name,
@@ -66,7 +74,7 @@ public record ClickSignWebhookRootPayloadDTO(
             String senderName,
             @JsonProperty("sender_phone")
             String senderPhone,
-            String content,
+    //        String content,
             @JsonProperty("sent_at")
             String sentAt,
             @JsonProperty("created_at")

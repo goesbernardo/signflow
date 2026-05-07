@@ -3,17 +3,15 @@ signflow:
     clicksign:
       enabled: true
       base-url: ${CLICKSIGN_URL:https://sandbox.clicksign.com/api/v3}
-      token: ${CLICKSIGN_API_TOKEN:e6acc96a-bfba-40fc-8248-62727f4f632e}
-      webhook-secret: d583189e2fb91887cdc8f69d37fc38ce
+      token: ${CLICKSIGN_API_TOKEN:43e5624f-84fa-4c72-b3c7-03202c34f8c6}
+      webhook-secret: 82953ab2142049b2132ff5b8c271c73e
     docusign:
       enabled: false
       base-url: ${DOCUSIGN_URL:}
-    zapsign:
-      enabled: false
-      base-url: ${ZAPSIGN_URL:}
 
 server:
   forward-headers-strategy: framework
+  port: ${SERVER_PORT:8080}
 
 springdoc:
   api-docs:
@@ -25,25 +23,29 @@ springdoc:
     disable-swagger-default-url: true
 
 swagger:
-  server-url: ${SWAGGER_SERVER_URL:}
+  server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/signflow
-    username: root
-    password: root
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/signflow}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
     driver-class-name: org.postgresql.Driver
 
   flyway:
     enabled: true
     baseline-on-migrate: true
+    clean-on-validation-error: true
+    clean-disabled: false
 
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
 resilience4j:
   circuitbreaker:
     instances:
@@ -90,3 +92,7 @@ management:
 logging:
   pattern:
     level: "%5p [requestId=%X{requestId}] [userId=%X{userId}]"
+  level:
+    root: INFO
+    com.signflow: DEBUG
+    org.hibernate.SQL: DEBUG

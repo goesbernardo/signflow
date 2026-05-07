@@ -1,0 +1,81 @@
+signflow:
+  providers:
+    clicksign:
+      enabled: true
+      base-url: ${CLICKSIGN_URL}                # obrigatório — sem fallback
+      token: ${CLICKSIGN_API_TOKEN}             # obrigatório — sem fallback
+      webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}               # obrigatório — sem fallback
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    open-in-view: false                         # evita queries durante rendering
+    hibernate:
+      ddl-auto: validate                        # nunca criar/alterar schema em produção
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: true                   # falha se checksum divergir
+
+  cloud:
+    discovery:
+      enabled: false                            # desabilita Spring Cloud Discovery
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}                       # obrigatório — sem fallback
+    expiration: 86400000
+
+# Actuator — restrito em produção
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics            # NÃO expor: env, beans, heapdump
+  endpoint:
+    health:
+      show-details: when-authorized             # detalhes só para ADMIN autenticado
+      show-components: when-authorized
+  info:
+    env:
+      enabled: false                            # não expor variáveis de ambiente no /info
+
+# Logging — JSON estruturado para agregadores de log em produção
+logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId}] [userId=%X{userId}]"
+  level:
+    root: INFO
+    com.signflow: INFO
+    org.springframework.security: WARN         # reduz ruído de auth
+    org.hibernate.SQL: WARN                    # sem SQL no log de produção
+    org.flywaydb: INFO
+
+# Swagger — desabilitar em produção se não quiser expor a documentação
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}           # desabilitado por padrão em prod
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+
+swagger:
+  server-url: ${SWAGGER_SERVER_URL:https://signflow-lysg.onrender.com}

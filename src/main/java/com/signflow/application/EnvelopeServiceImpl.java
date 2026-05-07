@@ -7,8 +7,7 @@ import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
-import com.signflow.enums.ProviderSignature;
-import com.signflow.enums.Status;
+import com.signflow.enums.*;
 import com.signflow.persistence.*;
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -97,6 +95,21 @@ public class EnvelopeServiceImpl implements EnvelopeService {
     }
 
     @Override
+    public List<Signer> getSigners(String externalId, ProviderSignature provider) {
+        return registry.get(provider).getSigners(externalId);
+    }
+
+    @Override
+    public Signer getSigner(String externalId, String signerId, ProviderSignature provider) {
+        return registry.get(provider).getSigner(externalId, signerId);
+    }
+
+    @Override
+    public void deleteSigner(String externalId, String signerId, ProviderSignature provider) {
+        registry.get(provider).deleteSigner(externalId, signerId);
+    }
+
+    @Override
     @Transactional
     public Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider) {
         log.info("Adicionando documento ao envelope {} no provedor {}", externalId, provider);
@@ -113,6 +126,26 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         });
         
         return document;
+    }
+
+    @Override
+    public List<Document> getDocuments(String externalId, ProviderSignature provider) {
+        return registry.get(provider).getDocuments(externalId);
+    }
+
+    @Override
+    public Document getDocument(String documentId, ProviderSignature provider) {
+        return registry.get(provider).getDocument(documentId);
+    }
+
+    @Override
+    public Document updateDocument(String documentId, UpdateDocumentCommand cmd, ProviderSignature provider) {
+        return registry.get(provider).updateDocument(documentId, cmd);
+    }
+
+    @Override
+    public void deleteDocument(String documentId, ProviderSignature provider) {
+        registry.get(provider).deleteDocument(documentId);
     }
 
     @Override
@@ -151,7 +184,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
 
     @Override
     @Transactional
-    public Requirement addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider) {
+    public void addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider) {
         log.info("Adicionando requisito ao envelope {} no provedor {}", externalId, provider);
         ESignatureGateway gateway = registry.get(provider);
         Requirement requirement = gateway.addRequirement(externalId, cmd);
@@ -173,8 +206,26 @@ public class EnvelopeServiceImpl implements EnvelopeService {
                 log.warn("Não foi possível persistir o requisito localmente: signatário ou documento não encontrado.");
             }
         });
+    }
 
-        return requirement;
+    @Override
+    public List<Requirement> getRequirements(String externalId, ProviderSignature provider) {
+        log.info("Listando requisitos do envelope {} no provedor {}", externalId, provider);
+        return registry.get(provider).getRequirements(externalId);
+    }
+
+    @Override
+    public Requirement getRequirement(String requirementId, ProviderSignature provider) {
+        log.info("Buscando requisito {} no provedor {}", requirementId, provider);
+        return registry.get(provider).getRequirement(requirementId);
+    }
+
+    @Override
+    @Transactional
+    public void deleteRequirement(String requirementId, ProviderSignature provider) {
+        log.info("Excluindo requisito {} no provedor {}", requirementId, provider);
+        registry.get(provider).deleteRequirement(requirementId);
+        requirementRepository.deleteByExternalId(requirementId);
     }
 
 
@@ -185,9 +236,7 @@ public class EnvelopeServiceImpl implements EnvelopeService {
         ESignatureGateway gateway = registry.get(provider);
         gateway.activateEnvelope(externalId);
         
-        repository.findByExternalId(externalId).ifPresent(entity -> {
-            updateStatus(entity, Status.ACTIVE, "API");
-        });
+        repository.findByExternalId(externalId).ifPresent(entity -> {updateStatus(entity, Status.ACTIVE, "API");});
     }
 
     @Override
@@ -225,80 +274,66 @@ public class EnvelopeServiceImpl implements EnvelopeService {
                 .build());
     }
 
+
     @Override
     @Transactional
-    public void activateEnvelopeComplete(ProviderSignature provider, String externalId, ActivateEnvelopeCommand command) {
-        log.info("Iniciando ativação completa do envelope {} no provedor {}", externalId, provider);
+    public Envelope createFullEnvelope(CreateFullEnvelopeCommand cmd, ProviderSignature provider) {
+        log.info("Iniciando criação de envelope completo: {}", cmd.name());
 
-        EnvelopeEntity envelope = repository.findByExternalId(externalId)
-                .orElseThrow(() -> new RuntimeException("Envelope não encontrado: " + externalId));
+        // 1. Criar Envelope
+        Envelope envelope = createEnvelope(CreateEnvelopeCommand.builder().name(cmd.name()).build(), provider);
+        String envelopeId = envelope.getExternalId();
 
-        SignerEntity signer = signerRepository.findByExternalId(command.signerId())
-                .orElseThrow(() -> new RuntimeException("Signatário não encontrado: " + command.signerId()));
+        // 2. Adicionar Documentos — coletar UUIDs reais
+        List<String> documentIds = new ArrayList<>();
+        if (cmd.documents() != null) {
+            for (AddDocumentCommand docCmd : cmd.documents()) {
+                Document doc = addDocument(envelopeId, docCmd, provider);
+                documentIds.add(doc.getExternalId());
+            }
+        }
 
-        DocumentEntity document = documentRepository.findByExternalId(command.documentId())
-                .orElseThrow(() -> new RuntimeException("Documento não encontrado: " + command.documentId()));
+        // 3. Adicionar Signatários — coletar UUIDs reais
+        List<String> signerIds = new ArrayList<>();
+        if (cmd.signers() != null) {
+            List<Signer> signers = addSigners(envelopeId, cmd.signers(), provider);
+            signers.forEach(s -> signerIds.add(s.getExternalId()));
+        }
 
-//        // Validação de vínculo (opcional, mas recomendado)
-//        if (!signer.getEnvelope().getId().equals(envelope.getId())) {
-//            throw new RuntimeException("Signatário não pertence ao envelope informado");
-//        }
-//        if (!document.getEnvelope().getId().equals(envelope.getId())) {
-//            throw new RuntimeException("Documento não pertence ao envelope informado");
-//        }
+        // 4. Adicionar Requisitos
+        if (cmd.requirements() != null && !documentIds.isEmpty() && !signerIds.isEmpty()) {
+            for (FullRequirementCommand reqCmd : cmd.requirements()) {
+                for (String signerId : signerIds) {
+                    for (String documentId : documentIds) {
 
-        String role = command.role() != null ? command.role() : "sign";
-        String auth = command.auth() != null ? command.auth() : "email";
+                        // 4a. SEMPRE cria AGREE
+                        addRequirement(envelopeId, AddRequirementCommand.builder()
+                                .signerId(signerId)
+                                .documentId(documentId)
+                                .action(RequirementAction.AGREE)
+                                .role(reqCmd.role() != null ? reqCmd.role() : RequirementRole.SIGN)
+                                .rubricPages(reqCmd.rubricPages())
+                                .build(), provider);
 
-        ESignatureGateway gateway = registry.get(provider);
+                        // 4b. SEMPRE cria PROVIDE_EVIDENCE — default EMAIL
+                        addRequirement(envelopeId, AddRequirementCommand.builder()
+                                .signerId(signerId)
+                                .documentId(documentId)
+                                .action(RequirementAction.PROVIDE_EVIDENCE)
+                                .auth(reqCmd.auth() != null ? reqCmd.auth() : RequirementAuth.EMAIL)
+                                .build(), provider);
+                    }
+                }
+            }
+        }
+        // 5. Ativação Automática
+        if (Boolean.TRUE.equals(cmd.autoActivate())) {
+            activateEnvelope(envelopeId, provider);
+        }
 
-        // ── 1. Requisito de Qualificação ─────────────────────────────
-        AddRequirementCommand qualification = AddRequirementCommand.builder()
-                .signerId(signer.getExternalId())
-                .documentId(document.getExternalId())
-                .action("agree")
-                .role(role)
-                .build();
-
-        log.info("Criando requisito de qualificação para o envelope {}", externalId);
-        Requirement qualificationReq = gateway.addRequirement(externalId, qualification);
-        log.info("Requisito de qualificação criado: {}", qualificationReq.getExternalId());
-
-        RequirementEntity qReqEntity = new RequirementEntity();
-        qReqEntity.setExternalId(qualificationReq.getExternalId());
-        qReqEntity.setEnvelope(envelope);
-        qReqEntity.setSigner(signer);
-        qReqEntity.setDocument(document);
-        qReqEntity.setCreated(LocalDateTime.now());
-        requirementRepository.save(qReqEntity);
-
-        // ── 2. Requisito de Autenticação ──────────────────────────────
-        AddRequirementCommand authentication = AddRequirementCommand.builder()
-                .signerId(signer.getExternalId())
-                .documentId(document.getExternalId())
-                .action("provide_evidence")
-                .auth(auth)
-                .build();
-
-        log.info("Criando requisito de autenticação para o envelope {}", externalId);
-        Requirement authenticationReq = gateway.addRequirement(externalId, authentication);
-        log.info("Requisito de autenticação criado: {}", authenticationReq.getExternalId());
-
-        RequirementEntity aReqEntity = new RequirementEntity();
-        aReqEntity.setExternalId(authenticationReq.getExternalId());
-        aReqEntity.setEnvelope(envelope);
-        aReqEntity.setSigner(signer);
-        aReqEntity.setDocument(document);
-        aReqEntity.setCreated(LocalDateTime.now());
-        requirementRepository.save(aReqEntity);
-
-        // ── 3. Ativar o envelope no provider ──────────────────────────
-        gateway.activateEnvelope(externalId);
-        log.info("Envelope {} ativado no provider {}", externalId, provider);
-
-        // ── 4. Atualizar status no banco local ────────────────────────
-        updateStatus(envelope, Status.ACTIVE, "API");
+        return getEnvelope(envelopeId, provider);
     }
+
 
     private void updateStatus(EnvelopeEntity entity, Status newStatus, String source) {
         Status previousStatus = entity.getStatus();

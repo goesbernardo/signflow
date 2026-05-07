@@ -5,4 +5,6 @@ import lombok.extern.jackson.Jacksonized;
 
 @Builder
 @Jacksonized
-public record CreateEnvelopeCommand(String name) {}
+public record UpdateDocumentCommand(
+    String filename
+) {}

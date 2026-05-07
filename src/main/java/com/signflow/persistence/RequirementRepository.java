@@ -8,4 +8,5 @@ import java.util.Optional;
 @Repository
 public interface RequirementRepository extends JpaRepository<RequirementEntity, Long> {
     Optional<RequirementEntity> findByExternalId(String externalId);
+    void deleteByExternalId(String externalId);
 }

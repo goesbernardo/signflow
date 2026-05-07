@@ -9,6 +9,7 @@ import feign.RequestInterceptor;
 import feign.codec.Decoder;
 import feign.codec.ErrorDecoder;
 import feign.optionals.OptionalDecoder;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
 import org.springframework.cloud.openfeign.support.ResponseEntityDecoder;
@@ -20,11 +21,22 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 
 import java.util.List;
 
+@Slf4j
 @Configuration
 public class ClickSignFeignConfig {
 
     @Value("${signflow.providers.clicksign.token}")
     private String token;
+
+    @Bean
+    public feign.Client feignClient() {
+        okhttp3.OkHttpClient okHttpClient = new okhttp3.OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
+        return new feign.okhttp.OkHttpClient(okHttpClient); // ← wrapper do Feign
+    }
 
     @Bean
     public RequestInterceptor requestInterceptor() {
@@ -48,8 +60,8 @@ public class ClickSignFeignConfig {
     }
 
     @Bean
-    public ErrorDecoder errorDecoder(){
-        return new ClickSignErrorDecoder();
+    public ErrorDecoder errorDecoder(ObjectMapper objectMapper){
+        return new ClickSignErrorDecoder(objectMapper);
     }
 
     @Bean

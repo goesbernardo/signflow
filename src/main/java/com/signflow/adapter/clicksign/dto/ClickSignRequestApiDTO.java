@@ -1,10 +1,14 @@
 package com.signflow.adapter.clicksign.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.extern.jackson.Jacksonized;
 
 @Builder
 @Jacksonized
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ClickSignRequestApiDTO<T>(T data) {
 
     // Sem id — usado em POST (criação)
@@ -17,6 +21,16 @@ public record ClickSignRequestApiDTO<T>(T data) {
                         .build())
                 .build();
     }
+
+    public static <A> ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<A, Void>> of(A attributes) {
+        return ClickSignRequestApiDTO.<ClickSignRequestApiDataDTO<A, Void>>builder()
+                .data(ClickSignRequestApiDataDTO.<A, Void>builder()
+                        .attributes(attributes)
+                        .build())
+                .build();
+    }
+
+
 
     // Com id — usado em PATCH/PUT (atualização/ativação)
     public static <A> ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<A, Void>> of(

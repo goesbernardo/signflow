@@ -48,9 +48,7 @@ public class WhatsAppAcceptanceController {
                       "signerPhone": "5521988888888",
                       "signerName": "João Silva"
                     }
-                    """))
-            )
-            @RequestBody @Valid CreateWhatsAppAcceptanceCommand command) {
+                    """))) @RequestBody @Valid CreateWhatsAppAcceptanceCommand command) {
 
         log.info("Criando aceite via WhatsApp para: {}", command.signerName());
 
@@ -64,14 +62,11 @@ public class WhatsAppAcceptanceController {
                         .signerName(command.signerName())
                         .build();
 
-        ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignWhatsAppAcceptanceAttributesDTO, Void>> body =
-                ClickSignRequestApiDTO.of("acceptance_term_whatsapps", attributes);
+        ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignWhatsAppAcceptanceAttributesDTO, Void>> body = ClickSignRequestApiDTO.of("acceptance_term_whatsapps", attributes);
 
         ClickSignWhatsAppAcceptanceResponseDTO clickSignResponse = clickSignClient.createWhatsAppAcceptance(body);
 
-        log.info("Aceite via WhatsApp criado: id={}, status={}",
-                clickSignResponse.data().id(),
-                clickSignResponse.data().attributes().status());
+        log.info("Aceite via WhatsApp criado: id={}, status={}", clickSignResponse.data().id(), clickSignResponse.data().attributes().status());
 
         String status = clickSignResponse.data().attributes().status();
 

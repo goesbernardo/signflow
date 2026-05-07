@@ -2,14 +2,16 @@ package com.signflow.api;
 
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import com.signflow.application.EnvelopeService;
-import com.signflow.domain.command.*;
-import com.signflow.domain.model.Document;
+import com.signflow.domain.command.CreateFullEnvelopeCommand;
+import com.signflow.domain.command.UpdateEnvelopeCommand;
+import com.signflow.domain.command.UpdateDocumentCommand;
 import com.signflow.domain.model.Envelope;
+import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
-import com.signflow.exception.domain.ErrorResponse;
 import com.signflow.enums.Status;
+import com.signflow.exception.domain.ErrorResponse;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -53,24 +55,6 @@ public class SignatureController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping
-    @RateLimiter(name = "userRateLimiter")
-    @Operation(summary = "Criar envelope", description = "Cria um novo envelope de assinatura no provedor especificado.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Envelope criado com sucesso",
-                    content = @Content(schema = @Schema(implementation = Envelope.class), examples = @ExampleObject(value = "{ \"externalId\": \"7db6f70a-0683-4a6c-9a4d-0453715c9298\", \"name\": \"Contrato de Aluguel\", \"status\": \"ACTIVE\", \"created\": \"2024-05-01T14:18:00Z\" }"))),
-            @ApiResponse(responseCode = "400", description = "Requisição inválida", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "429", description = "Limite de requisições excedido", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    public ResponseEntity<Envelope> createEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
-                                                   @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"Contrato de Prestação de Serviços\" }"))) @RequestBody @Valid CreateEnvelopeCommand command) {
-        Envelope response = envelopeService.createEnvelope(command, provider);
-        log.info("Envelope criado com sucesso: {}", response);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
     @GetMapping("/{externalId}")
     @Operation(summary = "Busca dados do envelope", description = "Busca dados detalhados de um envelope no provedor.")
     @ApiResponses(value = {
@@ -101,70 +85,6 @@ public class SignatureController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
-    @PostMapping("/{externalId}/signers")
-    @RateLimiter(name = "userRateLimiter")
-    @Operation(summary = "Adicionar signatários", description = "Adiciona um ou mais novos signatários ao envelope para futura assinatura.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Signatários adicionados com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Requisição inválida"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "429", description = "Limite de requisições excedido"),
-            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
-    })
-    public ResponseEntity<List<Signer>> addSigner(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-                                            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "[{ \"name\": \"João Silva\", \"email\": \"joao.silva@email.com\", \"documentation\": \"123.456.789-00\", \"hasDocumentation\": true, \"delivery\": \"email\" }]")))
-                                            @RequestBody @Valid List<AddSignerCommand> commands) {
-        List<Signer> response = envelopeService.addSigners(externalId, commands, provider);
-        log.info("{} assinante(s) adicionado(s)  {}: {}", response.size(), provider, externalId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @PostMapping("/{externalId}/documents")
-    @RateLimiter(name = "userRateLimiter")
-    @Operation(summary = "Adicionar documento", description = "Adiciona um novo documento (PDF em Base64) ao envelope.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Documento adicionado com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Requisição inválida"),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "429", description = "Limite de requisições excedido"),
-            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
-    })
-    public ResponseEntity<Document> addDocument(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-                                                @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"filename\": \"contrato.pdf\", \"content_base64\": \"JVBERi0xLjQKJ...\", \"email\": \"admin@signflow.com\" }")))
-                                                @RequestBody @Valid AddDocumentCommand command) {
-        Document response = envelopeService.addDocument(externalId, command, provider);
-        log.info("documento adicionado  {}: {}", provider, externalId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @PostMapping("/{externalId}/requirements")
-    @Operation(summary = "Adicionar requisito", description = "Vincula um signatário a um documento específico dentro do envelope.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Requisito adicionado com sucesso", content = @Content(schema = @Schema(implementation = Requirement.class))),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
-    })
-    public ResponseEntity<Requirement> addRequirement(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
-                                                      @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"documentId\": \"doc-123\", \"signerId\": \"signer-456\", \"action\": \"sign\", \"auth\": \"email\" }")))
-                                                      @RequestBody @Valid AddRequirementCommand command) {
-        Requirement response = envelopeService.addRequirement(externalId, command, provider);
-        log.info("requisito adicionado {}: {}", provider, externalId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @PutMapping("/{externalId}/activate")
-    @Operation(summary = "Ativar envelope", description = "Finaliza a edição do envelope e dispara as notificações para assinatura.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Envelope em processo de ativação. O resultado final será enviado via webhook."),
-            @ApiResponse(responseCode = "401", description = "Não autorizado"),
-            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    public ResponseEntity<Void> activateEnvelope(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @RequestBody @Valid ActivateEnvelopeCommand command) {
-        envelopeService.activateEnvelopeComplete(provider, externalId, command);
-        log.info("Processo de ativação do envelope {} iniciado via provider {}", externalId, provider);
-        return ResponseEntity.noContent().build();
-    }
-
     @GetMapping("/{externalId}/timeline")
     @Operation(summary = "Timeline do envelope", description = "Retorna a trilha de auditoria completa de eventos do envelope.")
     @ApiResponses(value = {
@@ -172,10 +92,87 @@ public class SignatureController {
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "404", description = "Envelope não encontrado")
     })
-    public ResponseEntity<List<EnvelopeTimelineResponse>> getTimeline(@PathVariable String externalId) {
-        List<EnvelopeTimelineResponse> response = envelopeService.getTimeline(externalId);
+    public ResponseEntity<List<EnvelopeTimelineResponse>> getTimeline(@PathVariable String externalId) {List<EnvelopeTimelineResponse> response = envelopeService.getTimeline(externalId);
         log.info("Timeline recuperada para o envelope {}: {} eventos", externalId, response.size());
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/create-activate-envelope")
+    @RateLimiter(name = "userRateLimiter")
+    @Operation(summary = "Criar envelope completo", description = "Cria um envelope, documentos, signatários e requisitos em uma única chamada. Opcionalmente ativa o envelope.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Envelope completo criado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado"),
+            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
+    })
+    public ResponseEntity<Envelope> createFullEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+                                                       @RequestBody @Valid CreateFullEnvelopeCommand command) {
+        Envelope response = envelopeService.createFullEnvelope(command, provider);
+        log.info("Envelope completo criado com sucesso: {}", response.getExternalId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{externalId}/documents")
+    @Operation(summary = "Listar documentos do envelope", description = "Retorna os documentos associados a um envelope.")
+    public ResponseEntity<List<Document>> getDocuments(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
+        return ResponseEntity.ok(envelopeService.getDocuments(externalId, provider));
+    }
+
+    @GetMapping("/documents/{documentId}")
+    @Operation(summary = "Visualizar documento", description = "Busca detalhes de um documento específico.")
+    public ResponseEntity<Document> getDocument(@RequestHeader("provider") ProviderSignature provider, @PathVariable String documentId) {
+        return ResponseEntity.ok(envelopeService.getDocument(documentId, provider));
+    }
+
+    @PatchMapping("/documents/{documentId}")
+    @Operation(summary = "Editar documento", description = "Atualiza os dados de um documento (ex: nome do arquivo).")
+    public ResponseEntity<Document> updateDocument(@RequestHeader("provider") ProviderSignature provider, @PathVariable String documentId, @RequestBody @Valid UpdateDocumentCommand command) {
+        return ResponseEntity.ok(envelopeService.updateDocument(documentId, command, provider));
+    }
+
+    @DeleteMapping("/documents/{documentId}")
+    @Operation(summary = "Excluir documento", description = "Remove um documento permanentemente.")
+    public ResponseEntity<Void> deleteDocument(@RequestHeader("provider") ProviderSignature provider, @PathVariable String documentId) {
+        envelopeService.deleteDocument(documentId, provider);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{externalId}/signers")
+    @Operation(summary = "Listar signatários do envelope", description = "Retorna os signatários associados a um envelope.")
+    public ResponseEntity<List<Signer>> getSigners(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
+        return ResponseEntity.ok(envelopeService.getSigners(externalId, provider));
+    }
+
+    @GetMapping("/{externalId}/signers/{signerId}")
+    @Operation(summary = "Visualizar signatário", description = "Busca detalhes de um signatário específico de um envelope.")
+    public ResponseEntity<Signer> getSigner(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @PathVariable String signerId) {
+        return ResponseEntity.ok(envelopeService.getSigner(externalId, signerId, provider));
+    }
+
+    @DeleteMapping("/{externalId}/signers/{signerId}")
+    @Operation(summary = "Excluir signatário", description = "Remove um signatário permanentemente de um envelope.")
+    public ResponseEntity<Void> deleteSigner(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId, @PathVariable String signerId) {
+        envelopeService.deleteSigner(externalId, signerId, provider);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{externalId}/requirements")
+    @Operation(summary = "Listar requisitos do envelope", description = "Retorna os requisitos associados a um envelope.")
+    public ResponseEntity<List<Requirement>> getRequirements(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
+        return ResponseEntity.ok(envelopeService.getRequirements(externalId, provider));
+    }
+
+    @GetMapping("/requirements/{requirementId}")
+    @Operation(summary = "Visualizar requisito", description = "Busca detalhes de um requisito específico.")
+    public ResponseEntity<Requirement> getRequirement(@RequestHeader("provider") ProviderSignature provider, @PathVariable String requirementId) {
+        return ResponseEntity.ok(envelopeService.getRequirement(requirementId, provider));
+    }
+
+    @DeleteMapping("/requirements/{requirementId}")
+    @Operation(summary = "Excluir requisito", description = "Remove um requisito permanentemente.")
+    public ResponseEntity<Void> deleteRequirement(@RequestHeader("provider") ProviderSignature provider, @PathVariable String requirementId) {
+        envelopeService.deleteRequirement(requirementId, provider);
+        return ResponseEntity.noContent().build();
+    }
 }

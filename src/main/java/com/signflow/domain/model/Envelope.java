@@ -13,5 +13,4 @@ public class Envelope {
     private String name;
     private Status status;
     private OffsetDateTime created;
-    private OffsetDateTime modified;
 }
