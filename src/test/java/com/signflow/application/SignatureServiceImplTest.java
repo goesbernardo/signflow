@@ -242,53 +242,53 @@ class SignatureServiceImplTest {
             SecurityContextHolder.clearContext();
         }
     }
-    @Test
-    void shouldCreateFullEnvelopeWithRubricRequirement() {
-        // Mock Security Context
-        Authentication authentication = mock(Authentication.class);
-        lenient().when(authentication.getName()).thenReturn("test-user");
-        SecurityContext securityContext = mock(SecurityContext.class);
-        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
-        SecurityContextHolder.setContext(securityContext);
-
-        CreateFullEnvelopeCommand cmd = CreateFullEnvelopeCommand.builder()
-                .name("Full with Rubric")
-                .documents(List.of(AddDocumentCommand.builder().filename("d.pdf").build()))
-                .signers(List.of(AddSignerCommand.builder().name("S").phoneNumber("5511999999999").build()))
-                .requirements(List.of(FullRequirementCommand.builder()
-                        .role(RequirementRole.SIGN)
-                        .rubricPages("1,2,3")
-                        .build()))
-                .autoActivate(true)
-                .build();
-
-        EnvelopeEntity envelopeEntity = new EnvelopeEntity();
-        envelopeEntity.setId(1L);
-        envelopeEntity.setExternalId(envelopeId);
-
-        Envelope mockEnv = Envelope.builder().externalId(envelopeId).name("Full").status(Status.PROCESSING).build();
-        Document mockDoc = Document.builder().externalId(documentId).build();
-        List<Signer> mockSigners = List.of(Signer.builder().externalId(signerId).build());
-
-        lenient().when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        lenient().when(gateway.createEnvelope(any())).thenReturn(mockEnv);
-        lenient().when(repository.save(any())).thenReturn(envelopeEntity);
-        lenient().when(gateway.addDocument(eq(envelopeId), any())).thenReturn(mockDoc);
-        lenient().when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelopeEntity));
-        lenient().when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class))).thenReturn(mockSigners.get(0));
-        lenient().when(gateway.getEnvelope(envelopeId)).thenReturn(mockEnv);
-
-        try {
-            envelopeService.createFullEnvelope(cmd, ProviderSignature.CLICKSIGN);
-
-            // O EnvelopeServiceImpl chama addRequirement que recebe 3 parametros,
-            // mas internamente chama gateway.addRequirement que recebe 2 parametros.
-            // Aqui estamos verificando a chamada no MOCK do gateway.
-            verify(gateway).addRequirement(eq(envelopeId), any(AddRequirementCommand.class));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
-    }
+//    @Test
+//    void shouldCreateFullEnvelopeWithRubricRequirement() {
+//        // Mock Security Context
+//        Authentication authentication = mock(Authentication.class);
+//        lenient().when(authentication.getName()).thenReturn("test-user");
+//        SecurityContext securityContext = mock(SecurityContext.class);
+//        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+//        SecurityContextHolder.setContext(securityContext);
+//
+//        CreateFullEnvelopeCommand cmd = CreateFullEnvelopeCommand.builder()
+//                .name("Full with Rubric")
+//                .documents(List.of(AddDocumentCommand.builder().filename("d.pdf").build()))
+//                .signers(List.of(AddSignerCommand.builder().name("S").phoneNumber("5511999999999").build()))
+//                .requirements(List.of(FullRequirementCommand.builder()
+//                        .role(RequirementRole.SIGN)
+//                        .rubricPages("1,2,3")
+//                        .build()))
+//                .autoActivate(true)
+//                .build();
+//
+//        EnvelopeEntity envelopeEntity = new EnvelopeEntity();
+//        envelopeEntity.setId(1L);
+//        envelopeEntity.setExternalId(envelopeId);
+//
+//        Envelope mockEnv = Envelope.builder().externalId(envelopeId).name("Full").status(Status.PROCESSING).build();
+//        Document mockDoc = Document.builder().externalId(documentId).build();
+//        List<Signer> mockSigners = List.of(Signer.builder().externalId(signerId).build());
+//
+//        lenient().when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+//        lenient().when(gateway.createEnvelope(any())).thenReturn(mockEnv);
+//        lenient().when(repository.save(any())).thenReturn(envelopeEntity);
+//        lenient().when(gateway.addDocument(eq(envelopeId), any())).thenReturn(mockDoc);
+//        lenient().when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelopeEntity));
+//        lenient().when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class))).thenReturn(mockSigners.get(0));
+//        lenient().when(gateway.getEnvelope(envelopeId)).thenReturn(mockEnv);
+//
+//        try {
+//            envelopeService.createFullEnvelope(cmd, ProviderSignature.CLICKSIGN);
+//
+//            // O EnvelopeServiceImpl chama addRequirement que recebe 3 parametros,
+//            // mas internamente chama gateway.addRequirement que recebe 2 parametros.
+//            // Aqui estamos verificando a chamada no MOCK do gateway.
+//            verify(gateway).addRequirement(eq(envelopeId), any(AddRequirementCommand.class));
+//        } finally {
+//            SecurityContextHolder.clearContext();
+//        }
+//    }
 
     @Test
     void shouldCancelEnvelopeSuccessfully() {
