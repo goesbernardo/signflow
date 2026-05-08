@@ -38,8 +38,17 @@ public interface SignatureService {
 
     /**
      * Consulta o envelope — primeiro no banco local, depois no provider.
+     * @param includeSigners se true, popula a lista de signatários a partir do banco local.
      */
-    Envelope getEnvelope(String externalId, ProviderSignature provider);
+    Envelope getEnvelope(String externalId, ProviderSignature provider, boolean includeSigners);
+
+    /**
+     * Consulta o envelope — primeiro no banco local, depois no provider.
+     * Versão simplificada sem signatários.
+     */
+    default Envelope getEnvelope(String externalId, ProviderSignature provider) {
+        return getEnvelope(externalId, provider, false);
+    }
 
     /**
      * Ativa o envelope e dispara as notificações para os signatários.
@@ -61,7 +70,14 @@ public interface SignatureService {
     /**
      * Lista envelopes do usuário autenticado com paginação e filtro opcional de status.
      */
-    Page<Envelope> listEnvelopes(Status status, Pageable pageable);
+    Page<Envelope> listEnvelopes(Status status, Pageable pageable, boolean includeSigners);
+
+    /**
+     * Lista envelopes sem detalhes de signatários por padrão.
+     */
+    default Page<Envelope> listEnvelopes(Status status, Pageable pageable) {
+        return listEnvelopes(status, pageable, false);
+    }
 
     /**
      * Retorna a timeline de eventos de auditoria do envelope.
@@ -149,5 +165,11 @@ public interface SignatureService {
      * TODO: implementar no ESignatureGateway e nos gateways de provider.
      */
     void deleteRequirement(String requirementId, ProviderSignature provider);
+
+    /**
+     * Envia um lembrete manual para o signatário.
+     * Possui rate limit de 1 lembrete por hora.
+     */
+    void remindSigner(String externalId, String signerId, ProviderSignature provider);
 
 }

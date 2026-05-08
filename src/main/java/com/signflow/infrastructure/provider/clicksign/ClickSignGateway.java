@@ -234,6 +234,21 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
+    @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "remindSignerFallback")
+    public void remindSigner(String envelopeId, String signerId) {
+        try {
+            clickSignClient.remindSigner(envelopeId, signerId);
+        } catch (Exception e) {
+            throw translateException(e, "Erro ao enviar lembrete ao signatário na ClickSign");
+        }
+    }
+
+    private void remindSignerFallback(String envelopeId, String signerId, Throwable t) {
+        log.error("Fallback remindSigner — ClickSign: {}", t.getMessage());
+        throw translateException(t);
+    }
+
     // ── provider ──────────────────────────────────────────────────────────
 
     @Override

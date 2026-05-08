@@ -4,6 +4,7 @@ import com.signflow.enums.Status;
 import lombok.Builder;
 import lombok.Data;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -13,4 +14,5 @@ public class Envelope {
     private String name;
     private Status status;
     private OffsetDateTime created;
+    private List<Signer> signers;
 }

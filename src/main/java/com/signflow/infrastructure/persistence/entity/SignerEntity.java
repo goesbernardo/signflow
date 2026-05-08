@@ -49,6 +49,9 @@ public class SignerEntity {
     @Column(name = "ip_address")
     private String ipAddress;
 
+    @Column(name = "last_reminded_at")
+    private LocalDateTime lastRemindedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "envelope_id", nullable = false)
     private EnvelopeEntity envelope;

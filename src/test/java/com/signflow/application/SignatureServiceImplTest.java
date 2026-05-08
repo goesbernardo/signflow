@@ -17,6 +17,7 @@ import com.signflow.enums.RequirementRole;
 import com.signflow.enums.Status;
 import com.signflow.infrastructure.persistence.repository.*;
 
+import com.signflow.domain.exception.DomainErrorCode;
 import com.signflow.domain.exception.DomainException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -210,6 +211,7 @@ class SignatureServiceImplTest {
         EnvelopeEntity envelopeEntity = new EnvelopeEntity();
         envelopeEntity.setId(1L);
         envelopeEntity.setExternalId(envelopeId);
+        envelopeEntity.setStatus(Status.DRAFT);
 
         Envelope mockEnv = Envelope.builder().externalId(envelopeId).name("Full").status(Status.PROCESSING).build();
         Document mockDoc = Document.builder().externalId(documentId).build();
@@ -291,6 +293,40 @@ class SignatureServiceImplTest {
 //    }
 
     @Test
+    void shouldActivateEnvelopeSuccessfully() {
+        EnvelopeEntity entity = new EnvelopeEntity();
+        entity.setExternalId(envelopeId);
+        entity.setStatus(Status.DRAFT);
+
+        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+
+        envelopeService.activateEnvelope(envelopeId, ProviderSignature.CLICKSIGN);
+
+        assertEquals(Status.ACTIVE, entity.getStatus());
+        verify(gateway).activateEnvelope(envelopeId);
+        verify(repository).save(entity);
+        verify(eventRepository).save(any());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenActivatingNonDraftEnvelope() {
+        EnvelopeEntity entity = new EnvelopeEntity();
+        entity.setExternalId(envelopeId);
+        entity.setStatus(Status.ACTIVE);
+
+        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+
+        DomainException exception = assertThrows(DomainException.class, () ->
+                envelopeService.activateEnvelope(envelopeId, ProviderSignature.CLICKSIGN)
+        );
+
+        assertEquals(DomainErrorCode.INVALID_ENVELOPE_STATUS, exception.getErrorCode());
+        assertEquals("Somente envelopes em rascunho (DRAFT) podem ser ativados. Status atual: ACTIVE", exception.getMessage());
+        verifyNoInteractions(registry);
+    }
+
+    @Test
     void shouldCancelEnvelopeSuccessfully() {
         EnvelopeEntity entity = new EnvelopeEntity();
         entity.setExternalId(envelopeId);
@@ -319,6 +355,7 @@ class SignatureServiceImplTest {
                 envelopeService.cancelEnvelope(envelopeId, ProviderSignature.CLICKSIGN)
         );
 
+        assertEquals(DomainErrorCode.INVALID_ENVELOPE_STATUS, exception.getErrorCode());
         assertEquals("Somente envelopes ACTIVE ou DRAFT podem ser cancelados. Status atual: CLOSED", exception.getMessage());
         verifyNoInteractions(registry);
     }
@@ -433,5 +470,37 @@ class SignatureServiceImplTest {
         envelopeService.deleteRequirement("req-123", ProviderSignature.CLICKSIGN);
 
         verify(requirementRepository).delete(entity);
+    }
+
+    @Test
+    void shouldRemindSignerSuccessfully() {
+        SignerEntity entity = new SignerEntity();
+        entity.setExternalId(signerId);
+        entity.setLastRemindedAt(java.time.LocalDateTime.now().minusHours(2));
+
+        when(signerRepository.findByExternalId(signerId)).thenReturn(Optional.of(entity));
+        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+
+        envelopeService.remindSigner(envelopeId, signerId, ProviderSignature.CLICKSIGN);
+
+        verify(gateway).remindSigner(envelopeId, signerId);
+        verify(signerRepository).save(entity);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenRemindingSignerWithinOneHour() {
+        SignerEntity entity = new SignerEntity();
+        entity.setExternalId(signerId);
+        entity.setLastRemindedAt(java.time.LocalDateTime.now().minusMinutes(30));
+
+        when(signerRepository.findByExternalId(signerId)).thenReturn(Optional.of(entity));
+
+        DomainException exception = assertThrows(DomainException.class, () ->
+                envelopeService.remindSigner(envelopeId, signerId, ProviderSignature.CLICKSIGN)
+        );
+
+        assertEquals(DomainErrorCode.REMINDER_RATE_LIMIT, exception.getErrorCode());
+        assertEquals("Um lembrete já foi enviado na última hora para este signatário", exception.getMessage());
+        verifyNoInteractions(gateway);
     }
 }

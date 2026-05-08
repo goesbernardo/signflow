@@ -49,8 +49,10 @@ public class SignatureController {
             @ApiResponse(responseCode = "200", description = "Lista recuperada com sucesso"),
             @ApiResponse(responseCode = "401", description = "Não autorizado")
     })
-    public ResponseEntity<Page<Envelope>> listEnvelopes(@Parameter(description = "Filtrar por status") @RequestParam(required = false) Status status, @PageableDefault(size = 10, sort = "created") Pageable pageable) {
-        Page<Envelope> response = signatureService.listEnvelopes(status, pageable);
+    public ResponseEntity<Page<Envelope>> listEnvelopes(@Parameter(description = "Filtrar por status") @RequestParam(required = false) Status status,
+                                                        @Parameter(description = "Incluir detalhes dos signatários") @RequestParam(required = false, defaultValue = "false") boolean includeSigners,
+                                                        @PageableDefault(size = 10, sort = "created") Pageable pageable) {
+        Page<Envelope> response = signatureService.listEnvelopes(status, pageable, includeSigners);
         return ResponseEntity.ok(response);
     }
 
@@ -62,8 +64,10 @@ public class SignatureController {
             @ApiResponse(responseCode = "404", description = "Envelope não encontrado"),
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = org.springframework.web.ErrorResponse.class)))
     })
-    public ResponseEntity<Envelope> getEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
-        Envelope response = signatureService.getEnvelope(externalId, provider);
+    public ResponseEntity<Envelope> getEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+                                               @Parameter(description = "Incluir detalhes dos signatários") @RequestParam(required = false, defaultValue = "false") boolean includeSigners,
+                                               @PathVariable String externalId) {
+        Envelope response = signatureService.getEnvelope(externalId, provider, includeSigners);
         log.info("Envelope encontrado com sucesso: {}", response);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
@@ -127,6 +131,28 @@ public class SignatureController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{externalId}/activate")
+    @Operation(summary = "Ativar envelope", description = "Ativa um envelope em rascunho (DRAFT) no provedor e dispara as notificações. Retorna 409 se o envelope já estiver ativo ou cancelado.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Envelope ativado com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado"),
+            @ApiResponse(responseCode = "404", description = "Envelope não encontrado"),
+            @ApiResponse(responseCode = "409", description = "O envelope não está em status permitido para ativação"),
+            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
+    })
+    public ResponseEntity<Void> activateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+                                                 @PathVariable String externalId) {
+        try {
+            signatureService.activateEnvelope(externalId, provider);
+            return ResponseEntity.noContent().build();
+        } catch (com.signflow.domain.exception.DomainException e) {
+            if (e.getMessage().contains("DRAFT")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            }
+            throw e;
+        }
+    }
+
     @GetMapping("/{externalId}/documents")
     @Operation(summary = "Listar documentos do envelope", description = "Retorna os documentos associados a um envelope.")
     public ResponseEntity<List<Document>> getDocuments(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {
@@ -187,6 +213,17 @@ public class SignatureController {
     @Operation(summary = "Excluir requisito", description = "Remove um requisito permanentemente.")
     public ResponseEntity<Void> deleteRequirement(@RequestHeader("provider") ProviderSignature provider, @PathVariable String requirementId) {
         signatureService.deleteRequirement(requirementId, provider);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{envelopeId}/signers/{signerId}/remind")
+    @Operation(summary = "Lembrar signatário", description = "Envia um lembrete manual para o signatário assinar o documento.")
+    public ResponseEntity<Void> remindSigner(
+            @RequestHeader("provider") ProviderSignature provider,
+            @PathVariable String envelopeId,
+            @PathVariable String signerId) {
+        log.info("Recebida requisição de lembrete para o signatário {} do envelope {} no provedor {}", signerId, envelopeId, provider);
+        signatureService.remindSigner(envelopeId, signerId, provider);
         return ResponseEntity.noContent().build();
     }
 }
