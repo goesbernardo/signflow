@@ -17,7 +17,11 @@ O **SignFlow** é uma API de gerenciamento de assinaturas eletrônicas, projetad
 
 ## 🏗️ Arquitetura
 
-O projeto segue princípios de **Arquitetura Hexagonal (Clean Architecture)**, separando as regras de negócio das implementações técnicas (gateways, adaptadores de persistência e controladores).
+O projeto segue princípios de **Arquitetura Hexagonal (Portas e Adaptadores)**, separando as regras de negócio das implementações técnicas.
+
+- **Domínio:** Modelos de negócio, enums globais e exceções de domínio (`com.signflow.domain`).
+- **Aplicação:** Portas de entrada (`SignatureService`) e saída (`ESignatureGateway`), além da implementação dos serviços (`com.signflow.application`).
+- **Infraestrutura:** Adaptadores para persistência JPA, clientes Feign para integração com provedores e tratamento global de exceções (`com.signflow.infrastructure`).
 
 ## 🔐 Segurança
 
@@ -51,6 +55,7 @@ As variáveis de configuração são organizadas por provedor. Exemplo de config
 | `ADMIN_PASSWORD` | Senha BCrypt do administrador padrão (Migration) | `admin123` (Criptografado) |
 | `CLICKSIGN_URL` | URL da API da ClickSign | `https://sandbox.clicksign.com/api/v3` |
 | `CLICKSIGN_API_TOKEN` | Token de acesso da ClickSign | (Token de Sandbox) |
+| `CLICKSIGN_HMAC_SECRET` | Chave secreta para validação de Webhook | (Opcional) |
 
 *Nota: Para novos provedores, siga o padrão `NOMEPROVEDOR_URL` e `NOMEPROVEDOR_TOKEN`.*
 
@@ -80,15 +85,27 @@ A documentação interativa da API está disponível em:
 ### Assinaturas (Signature)
 A API utiliza o header `provider` para rotear as chamadas para o adaptador correspondente (ex: `CLICKSIGN`). Todos os endpoints abaixo exigem esse header e o token `Bearer`.
 
-- `POST /api/v1/signatures`: Cria um novo envelope.
-- `GET /api/v1/signatures/{externalId}`: Busca detalhes de um envelope.
-- `PATCH /api/v1/signatures/{externalId}`: Edita um envelope.
-- `POST /api/v1/signatures/{externalId}/signers`: Adiciona um ou mais signatários (suporta lote).
-- `POST /api/v1/signatures/{externalId}/documents`: Adiciona um documento.
-- `POST /api/v1/signatures/{externalId}/requirements`: Vincula signatário a um documento (com suporte a Autenticação, Rubrica e Qualificação).
-- `PUT /api/v1/signatures/{externalId}/activate`: Ativa o envelope para assinatura (Retorno 204 - Processamento via Webhook).
+- `POST /api/v1/signatures/create-activate-envelope`: **(Recomendado)** Criação completa de um envelope (documentos, signatários, requisitos e ativação) em uma única chamada.
+- `GET /api/v1/signatures`: Listagem paginada de envelopes do usuário.
+- `GET /api/v1/signatures/{externalId}`: Busca detalhes de um envelope no provedor.
+- `PATCH /api/v1/signatures/{externalId}`: Edita dados básicos de um envelope.
 - `GET /api/v1/signatures/{externalId}/timeline`: Retorna a trilha de auditoria (eventos) do envelope.
-- `POST /api/v1/signatures/full`: **(Novo!)** Orquestra a criação completa de um envelope (documentos, signatários, requisitos e ativação) em uma única chamada.
+
+#### Gerenciamento de Documentos
+- `GET /api/v1/signatures/{externalId}/documents`: Lista documentos de um envelope.
+- `GET /api/v1/signatures/documents/{documentId}`: Visualiza detalhes de um documento.
+- `PATCH /api/v1/signatures/documents/{documentId}`: Edita um documento.
+- `DELETE /api/v1/signatures/documents/{documentId}`: Exclui um documento.
+
+#### Gerenciamento de Signatários
+- `GET /api/v1/signatures/{externalId}/signers`: Lista signatários de um envelope.
+- `GET /api/v1/signatures/{externalId}/signers/{signerId}`: Visualiza detalhes de um signatário.
+- `DELETE /api/v1/signatures/{externalId}/signers/{signerId}`: Exclui um signatário.
+
+#### Gerenciamento de Requisitos
+- `GET /api/v1/signatures/{externalId}/requirements`: Lista requisitos de um envelope.
+- `GET /api/v1/signatures/requirements/{requirementId}`: Visualiza detalhes de um requisito.
+- `DELETE /api/v1/signatures/requirements/{requirementId}`: Exclui um requisito.
 
 ### Aceite via WhatsApp
 - `POST /api/v1/whatsapp-acceptance`: Cria um novo fluxo de aceite simplificado via WhatsApp.
