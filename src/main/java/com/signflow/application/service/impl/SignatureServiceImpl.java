@@ -127,6 +127,23 @@ public class SignatureServiceImpl implements SignatureService {
         repository.findByExternalId(externalId).ifPresent(entity -> updateStatus(entity, Status.ACTIVE));
     }
 
+    @Override
+    @Transactional
+    public void cancelEnvelope(String externalId, ProviderSignature provider) {
+        log.info("Cancelando envelope {} no provedor {}", externalId, provider);
+        EnvelopeEntity entity = repository.findByExternalId(externalId)
+                .orElseThrow(() -> new DomainException("Envelope não encontrado: " + externalId));
+
+        if (entity.getStatus() != Status.ACTIVE && entity.getStatus() != Status.DRAFT) {
+            throw new DomainException("Somente envelopes ACTIVE ou DRAFT podem ser cancelados. Status atual: " + entity.getStatus());
+        }
+
+        ESignatureGateway gateway = registry.get(provider);
+        gateway.cancelEnvelope(externalId);
+        updateStatus(entity, Status.CANCELED);
+        log.info("Envelope {} cancelado com sucesso.", externalId);
+    }
+
     // ── listEnvelopes ─────────────────────────────────────────────────────
 
     @Override

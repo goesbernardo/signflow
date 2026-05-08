@@ -17,6 +17,7 @@ import com.signflow.enums.RequirementRole;
 import com.signflow.enums.Status;
 import com.signflow.infrastructure.persistence.repository.*;
 
+import com.signflow.domain.exception.DomainException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -286,6 +288,39 @@ class SignatureServiceImplTest {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    @Test
+    void shouldCancelEnvelopeSuccessfully() {
+        EnvelopeEntity entity = new EnvelopeEntity();
+        entity.setExternalId(envelopeId);
+        entity.setStatus(Status.ACTIVE);
+
+        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+
+        envelopeService.cancelEnvelope(envelopeId, ProviderSignature.CLICKSIGN);
+
+        assertEquals(Status.CANCELED, entity.getStatus());
+        verify(gateway).cancelEnvelope(envelopeId);
+        verify(repository).save(entity);
+        verify(eventRepository).save(any());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenCancellingEnvelopeWithInvalidStatus() {
+        EnvelopeEntity entity = new EnvelopeEntity();
+        entity.setExternalId(envelopeId);
+        entity.setStatus(Status.CLOSED);
+
+        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+
+        DomainException exception = assertThrows(DomainException.class, () ->
+                envelopeService.cancelEnvelope(envelopeId, ProviderSignature.CLICKSIGN)
+        );
+
+        assertEquals("Somente envelopes ACTIVE ou DRAFT podem ser cancelados. Status atual: CLOSED", exception.getMessage());
+        verifyNoInteractions(registry);
     }
 
     @Test

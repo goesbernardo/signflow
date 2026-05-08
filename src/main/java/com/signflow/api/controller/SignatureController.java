@@ -112,6 +112,21 @@ public class SignatureController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/{externalId}/cancel")
+    @Operation(summary = "Cancelar envelope", description = "Cancela um envelope no provedor e atualiza o status local para CANCELED. Somente envelopes ACTIVE ou DRAFT podem ser cancelados.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Envelope cancelado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Status do envelope não permite cancelamento"),
+            @ApiResponse(responseCode = "401", description = "Não autorizado"),
+            @ApiResponse(responseCode = "404", description = "Envelope não encontrado"),
+            @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
+    })
+    public ResponseEntity<Void> cancelEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+                                               @PathVariable String externalId) {
+        signatureService.cancelEnvelope(externalId, provider);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{externalId}/documents")
     @Operation(summary = "Listar documentos do envelope", description = "Retorna os documentos associados a um envelope.")
     public ResponseEntity<List<Document>> getDocuments(@RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId) {

@@ -1,6 +1,6 @@
 package com.signflow.api;
 
-import com.signflow.application.service.ClickSignWebhookService;
+import com.signflow.application.webhook.WebhookEventProcessor;
 import com.signflow.infrastructure.provider.clicksign.ClickSignHmacValidator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +25,7 @@ public class WebhookSecurityTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private ClickSignWebhookService webhookService;
+    private WebhookEventProcessor webhookEventProcessor;
 
     @MockBean
     private ClickSignHmacValidator hmacValidator;
@@ -35,9 +35,23 @@ public class WebhookSecurityTest {
         // Simular HMAC válido
         when(hmacValidator.isValid(any(), any())).thenReturn(true);
 
+        String validPayload = """
+                {
+                  "data": {
+                    "id": "test-envelope-id",
+                    "type": "envelopes",
+                    "attributes": {
+                      "name": "document_closed",
+                      "status": "closed",
+                      "created_at": "2023-01-01T10:00:00-03:00"
+                    }
+                  }
+                }
+                """;
+
         mockMvc.perform(post("/api/v1/webhook/clicksign")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"data\": {\"id\": \"test\", \"type\": \"envelopes\"}}")
+                        .content(validPayload)
                         .header("X-Clicksign-Hmac-Sha256", "some-hmac"))
                 .andExpect(status().isOk());
     }

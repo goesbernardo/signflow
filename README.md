@@ -89,6 +89,7 @@ A API utiliza o header `provider` para rotear as chamadas para o adaptador corre
 - `GET /api/v1/signatures`: Listagem paginada de envelopes do usuário.
 - `GET /api/v1/signatures/{externalId}`: Busca detalhes de um envelope no provedor.
 - `PATCH /api/v1/signatures/{externalId}`: Edita dados básicos de um envelope.
+- `POST /api/v1/signatures/{externalId}/cancel`: Cancela um envelope no provedor e localmente.
 - `GET /api/v1/signatures/{externalId}/timeline`: Retorna a trilha de auditoria (eventos) do envelope.
 
 #### Gerenciamento de Documentos

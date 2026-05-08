@@ -21,7 +21,7 @@ public class WebhookController {
     @PostMapping("/{provider}")
     @Operation(summary = "Webhook ",
             description = "Recebe eventos de envelopes e aceites .")
-    public ResponseEntity<Void> clicksign(@PathVariable String provider, @RequestBody String payload) {
+    public ResponseEntity<Void> processWebhook(@PathVariable String provider, @RequestBody String payload) {
 
         log.info("Recebendo webhook : {}", payload);
         webhookHandler.handle(provider, payload);
