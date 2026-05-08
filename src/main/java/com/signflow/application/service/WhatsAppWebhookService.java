@@ -32,7 +32,7 @@ import com.signflow.infrastructure.persistence.repository.EnvelopeEventRepositor
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ClickSignWhatsAppWebhookService {
+public class WhatsAppWebhookService {
 
     private final EnvelopeRepository envelopeRepository;
     private final EnvelopeEventRepository eventRepository;

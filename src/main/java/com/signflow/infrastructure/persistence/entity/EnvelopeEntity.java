@@ -3,12 +3,10 @@ package com.signflow.infrastructure.persistence.entity;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "envelope_request")
@@ -42,4 +40,18 @@ public class EnvelopeEntity {
 
     @OneToMany(mappedBy = "envelope", cascade = CascadeType.ALL, orphanRemoval = true)
     private java.util.List<EnvelopeEventEntity> events;
+
+    public EnvelopeEntity(Long id, String userId, String name, ProviderSignature provider, Status status, String providerStatus, LocalDateTime created, String externalId, List<SignerEntity> signers, List<DocumentEntity> documents, List<EnvelopeEventEntity> events) {
+        this.id = id;
+        this.userId = userId;
+        this.name = name;
+        this.provider = provider;
+        this.status = status;
+        this.providerStatus = providerStatus;
+        this.created = created;
+        this.externalId = externalId;
+        this.signers = signers;
+        this.documents = documents;
+        this.events = events;
+    }
 }

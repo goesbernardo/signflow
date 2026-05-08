@@ -1,0 +1,28 @@
+package com.signflow.enums;
+
+public enum WebhookEventType {
+
+    DOCUMENT_CREATED,
+
+    DOCUMENT_SENT,
+
+    DOCUMENT_VIEWED,
+
+    DOCUMENT_SIGNED,
+
+    DOCUMENT_COMPLETED,
+
+    DOCUMENT_REJECTED,
+
+    DOCUMENT_CANCELED,
+
+    DOCUMENT_EXPIRED,
+
+    SIGNER_ADDED,
+
+    SIGNER_REMOVED,
+
+    BIOMETRIC_REFUSED,
+
+    UNKNOWN
+}
