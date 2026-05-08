@@ -47,6 +47,12 @@ public interface SignatureService {
     void activateEnvelope(String externalId, ProviderSignature provider);
 
     /**
+     * Cancela um envelope no provedor e atualiza localmente.
+     * Somente envelopes ACTIVE ou DRAFT podem ser cancelados.
+     */
+    void cancelEnvelope(String externalId, ProviderSignature provider);
+
+    /**
      * Cria envelope completo em uma única chamada:
      * envelope → documentos → signatários → requisitos → ativação opcional.
      */

@@ -27,9 +27,7 @@ public interface ESignatureGateway {
 
     void activateEnvelope(String envelopeId);
 
-    default void cancelEnvelope(String envelopeId) {
-        throw new UnsupportedOperationException("cancelEnvelope não implementado para o provider: " + provider().name());
-    }
+    void cancelEnvelope(String envelopeId);
 
     // ── Operações de Documento ────────────────────────────────────────────
 

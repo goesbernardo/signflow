@@ -219,6 +219,21 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
+    @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "cancelEnvelopeFallback")
+    public void cancelEnvelope(String envelopeId) {
+        var attributes = ClicksignActivateAttributesDTO.builder()
+                .status("canceled")
+                .build();
+        var body = ClickSignRequestApiDTO.of(envelopeId, "envelopes", attributes);
+        clickSignClient.activateEnvelope(envelopeId, body);
+    }
+
+    private void cancelEnvelopeFallback(String envelopeId, Throwable t) {
+        log.error("Fallback cancelEnvelope — ClickSign: {}", t.getMessage());
+        throw translateException(t);
+    }
+
     // ── provider ──────────────────────────────────────────────────────────
 
     @Override
