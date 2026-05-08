@@ -2,6 +2,7 @@ package com.signflow.adapter.clicksign.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.Email;
 import lombok.Builder;
 import lombok.extern.jackson.Jacksonized;
 
@@ -21,6 +22,7 @@ public record ClickSignResponseAttributesDTO(
     @JsonProperty("phone_number")
     String phoneNumber,
     @JsonProperty("email")
+    @Email
     String email,
     @JsonProperty("has_documentation")
     Boolean hasDocumentation,

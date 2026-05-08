@@ -2,8 +2,7 @@ package com.signflow.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signflow.api.dto.LoginRequest;
-import com.signflow.persistence.UserEntity;
-import com.signflow.persistence.UserRepository;
+import com.signflow.domain.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +29,7 @@ public class AuthIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private UserRepository userRepository;
+    private com.signflow.repository.UserRepository userRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;

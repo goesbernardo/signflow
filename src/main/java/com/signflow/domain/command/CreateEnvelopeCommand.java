@@ -5,4 +5,4 @@ import lombok.extern.jackson.Jacksonized;
 
 @Builder
 @Jacksonized
-public record CreateEnvelopeCommand(String name, WebhookCommand webhook) {}
+public record CreateEnvelopeCommand(String name) {}

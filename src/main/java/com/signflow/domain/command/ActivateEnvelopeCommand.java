@@ -1,20 +1,31 @@
 package com.signflow.domain.command;
 
+import com.signflow.enums.SignatureAuthMethod;
+import com.signflow.enums.SignerRole;
 import lombok.Builder;
 import lombok.extern.jackson.Jacksonized;
+
+/**
+ * Command para ativação completa do envelope.
+ * <p>
+ * O endpoint POST /activate usa este command para criar
+ * automaticamente os dois requisitos obrigatórios da ClickSign
+ * (qualificação + autenticacao) e ativar o envelope.
+ */
 
 @Builder
 @Jacksonized
 public record ActivateEnvelopeCommand(
 
-        String signerId,        // externalId do signatário
+        String signerId,
 
-        String documentId,      // externalId do documento
+        String documentId,
 
-        String role,            // role do signatário: "sign" | "party" | "contractor"
-        // default: "sign"
+        // Papel do signatario.
+        // Default: SIGN
+        SignerRole role,
 
-        String auth             // método de autenticação: "email" | "sms" | "whatsapp"
-        // default: "email"
+         // Default: EMAIL
+        SignatureAuthMethod auth
 ) {}
 

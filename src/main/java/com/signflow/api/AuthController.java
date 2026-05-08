@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Autenticação", description = "Endpoints para gestão de acesso e tokens")
+@Slf4j
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
@@ -40,6 +42,7 @@ public class AuthController {
 
         final UserDetails userDetails = userDetailsService.loadUserByUsername(request.username());
         final String jwt = jwtUtils.generateToken(userDetails);
+        log.info("Autenticação com a clicksign efetuada com sucesso: {}"  , jwt);
 
         return ResponseEntity.ok(LoginResponse.builder().token(jwt).build());
     }
