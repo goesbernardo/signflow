@@ -62,9 +62,31 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
+    @ExceptionHandler(IntegrationException.class)
+    public ResponseEntity<ErrorResponse> handleIntegrationException(IntegrationException ex, HttpServletRequest request) {
+        log.error("Erro de integração: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_GATEWAY.value())
+                .error(HttpStatus.BAD_GATEWAY.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .details(ex.getDetails())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(errorResponse);
+    }
+
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleDomainException(DomainException ex, HttpServletRequest request) {
-        HttpStatus status = ex instanceof IntegrationException ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST;
+        HttpStatus status = switch (ex.getErrorCode()) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case INVALID_ENVELOPE_STATUS -> HttpStatus.CONFLICT;
+            case REMINDER_RATE_LIMIT -> HttpStatus.TOO_MANY_REQUESTS;
+            case INVALID_AUTH_METHOD -> HttpStatus.BAD_REQUEST;
+            case BUSINESS_RULE_VIOLATION -> HttpStatus.BAD_REQUEST;
+        };
 
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
@@ -72,7 +94,6 @@ public class GlobalExceptionHandler {
                 .error(status.getReasonPhrase())
                 .message(ex.getMessage())
                 .path(request.getRequestURI())
-                .details(ex instanceof IntegrationException ? ((IntegrationException) ex).getDetails() : null)
                 .build();
 
         return ResponseEntity.status(status).body(errorResponse);
@@ -89,6 +110,21 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
+        log.error("Erro inesperado: ", ex);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
+                .message("Ocorreu um erro interno inesperado")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
     private String getMessage(String code) {

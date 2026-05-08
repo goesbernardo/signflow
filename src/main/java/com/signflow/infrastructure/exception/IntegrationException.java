@@ -23,7 +23,7 @@ public class IntegrationException extends DomainException {
     }
 
     public IntegrationException(String message, String rawResponse, List<ErroDetail> details, Throwable cause) {
-        super(message, cause);
+        super(message);
         this.rawResponse = rawResponse;
         this.details = details;
     }

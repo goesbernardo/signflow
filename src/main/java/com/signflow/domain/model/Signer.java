@@ -9,6 +9,9 @@ import lombok.Data;
 public class Signer {
     private String externalId;
     private String name;
+    private String email;
+    private String status;
+    private OffsetDateTime signedAt;
     private OffsetDateTime created;
     private OffsetDateTime modified;
 }

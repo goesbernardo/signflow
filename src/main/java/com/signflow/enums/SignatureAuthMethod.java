@@ -21,6 +21,7 @@ package com.signflow.enums;
         *   etc.
  */
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.signflow.domain.exception.DomainErrorCode;
 import com.signflow.domain.exception.DomainException;
 
 public enum SignatureAuthMethod {
@@ -57,7 +58,7 @@ public enum SignatureAuthMethod {
         try {
             return SignatureAuthMethod.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new DomainException("RequirementAuth inválido: " + value);
+            throw new DomainException(DomainErrorCode.INVALID_AUTH_METHOD, "RequirementAuth inválido: " + value);
         }
     }
 }

@@ -29,6 +29,8 @@ public interface ESignatureGateway {
 
     void cancelEnvelope(String envelopeId);
 
+    void remindSigner(String envelopeId, String signerId);
+
     // ── Operações de Documento ────────────────────────────────────────────
 
     Document addDocument(String envelopeId, AddDocumentCommand cmd);
