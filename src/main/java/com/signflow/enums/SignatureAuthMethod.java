@@ -20,6 +20,9 @@ package com.signflow.enums;
         *   SMS               -> recipientType: "signer", smsAuthentication: { ... }
         *   etc.
  */
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.signflow.domain.exception.DomainException;
+
 public enum SignatureAuthMethod {
 
     /** Autenticacao via link enviado por e-mail */
@@ -44,5 +47,17 @@ public enum SignatureAuthMethod {
     API,
 
     /** Assinatura automática — exige Termo de Assinatura Automática prévio */
-    AUTO
+    AUTO;
+
+    @JsonCreator
+    public static SignatureAuthMethod fromValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return SignatureAuthMethod.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new DomainException("RequirementAuth inválido: " + value);
+        }
+    }
 }

@@ -6,7 +6,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "envelope_request")
@@ -14,6 +13,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @ToString(exclude = {"signers", "documents", "events"})
+@AllArgsConstructor
 public class EnvelopeEntity {
 
     @Id
@@ -41,17 +41,4 @@ public class EnvelopeEntity {
     @OneToMany(mappedBy = "envelope", cascade = CascadeType.ALL, orphanRemoval = true)
     private java.util.List<EnvelopeEventEntity> events;
 
-    public EnvelopeEntity(Long id, String userId, String name, ProviderSignature provider, Status status, String providerStatus, LocalDateTime created, String externalId, List<SignerEntity> signers, List<DocumentEntity> documents, List<EnvelopeEventEntity> events) {
-        this.id = id;
-        this.userId = userId;
-        this.name = name;
-        this.provider = provider;
-        this.status = status;
-        this.providerStatus = providerStatus;
-        this.created = created;
-        this.externalId = externalId;
-        this.signers = signers;
-        this.documents = documents;
-        this.events = events;
-    }
 }
