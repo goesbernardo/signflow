@@ -1,7 +1,6 @@
 package com.signflow.config;
 
-import com.signflow.persistence.UserEntity;
-import com.signflow.persistence.UserRepository;
+import com.signflow.domain.entity.UserEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @RequiredArgsConstructor
 public class DataInitializer {
 
-    private final UserRepository userRepository;
+    private final com.signflow.repository.UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Bean

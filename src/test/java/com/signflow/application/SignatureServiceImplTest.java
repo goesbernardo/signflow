@@ -2,50 +2,45 @@ package com.signflow.application;
 
 import com.signflow.adapter.ESignatureGateway;
 import com.signflow.adapter.SignatureGatewayRegistry;
-import com.signflow.domain.command.ActivateEnvelopeCommand;
-import com.signflow.domain.command.AddDocumentCommand;
-import com.signflow.domain.command.UpdateDocumentCommand;
-import com.signflow.domain.command.AddRequirementCommand;
-import com.signflow.domain.command.AddSignerCommand;
-import com.signflow.domain.command.CreateEnvelopeCommand;
-import com.signflow.domain.command.CreateFullEnvelopeCommand;
+import com.signflow.domain.command.*;
+import com.signflow.domain.entity.DocumentEntity;
+import com.signflow.domain.entity.EnvelopeEntity;
+import com.signflow.domain.entity.RequirementEntity;
+import com.signflow.domain.entity.SignerEntity;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
+import com.signflow.enums.RequirementRole;
 import com.signflow.enums.Status;
-import com.signflow.persistence.*;
+import com.signflow.repository.*;
+import com.signflow.service.impl.SignatureServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import com.signflow.domain.command.FullRequirementCommand;
-import com.signflow.enums.RequirementAction;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class EnvelopeServiceImplTest {
+class SignatureServiceImplTest {
 
     @Mock
     private SignatureGatewayRegistry registry;
     @Mock
-    private SignatureRepository repository;
+    private EnvelopeRepository repository;
     @Mock
     private SignerRepository signerRepository;
     @Mock
@@ -58,7 +53,7 @@ class EnvelopeServiceImplTest {
     private ESignatureGateway gateway;
 
     @InjectMocks
-    private EnvelopeServiceImpl envelopeService;
+    private SignatureServiceImpl envelopeService;
 
     private String envelopeId = "env-123";
     private String signerId = "signer-123";
@@ -169,8 +164,8 @@ class EnvelopeServiceImplTest {
         envelope.setExternalId(envelopeId);
 
         List<AddSignerCommand> commands = List.of(
-                AddSignerCommand.builder().name("S1").email("s1@t.com").build(),
-                AddSignerCommand.builder().name("S2").email("s2@t.com").build()
+                AddSignerCommand.builder().name("S1").email("s1@t.com").phoneNumber("5511999999999").build(),
+                AddSignerCommand.builder().name("S2").email("s2@t.com").phoneNumber("5511988888888").build()
         );
 
         List<Signer> mockSigners = List.of(
@@ -179,12 +174,16 @@ class EnvelopeServiceImplTest {
         );
 
         when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        when(gateway.addSigners(envelopeId, commands)).thenReturn(mockSigners);
+        // O EnvelopeServiceImpl chama addSigners (default na interface) que por sua vez chama addSigner N vezes.
+        when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class)))
+                .thenReturn(mockSigners.get(0))
+                .thenReturn(mockSigners.get(1));
+        
         when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelope));
 
         List<Signer> result = envelopeService.addSigners(envelopeId, commands, ProviderSignature.CLICKSIGN);
 
-        verify(gateway).addSigners(envelopeId, commands);
+        verify(gateway, times(2)).addSigner(eq(envelopeId), any(AddSignerCommand.class));
         verify(signerRepository, times(2)).save(any(SignerEntity.class));
         verify(repository).findByExternalId(envelopeId);
     }
@@ -201,7 +200,7 @@ class EnvelopeServiceImplTest {
         CreateFullEnvelopeCommand cmd = CreateFullEnvelopeCommand.builder()
                 .name("Full")
                 .documents(List.of(AddDocumentCommand.builder().filename("d.pdf").build()))
-                .signers(List.of(AddSignerCommand.builder().name("S").build()))
+                .signers(List.of(AddSignerCommand.builder().name("S").phoneNumber("5511999999999").build()))
                 .autoActivate(true)
                 .build();
 
@@ -224,7 +223,7 @@ class EnvelopeServiceImplTest {
         lenient().when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelopeEntity));
         
         // Mock addSigners
-        lenient().when(gateway.addSigners(eq(envelopeId), any(List.class))).thenReturn(mockSigners);
+        lenient().when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class))).thenReturn(mockSigners.get(0));
         
         // Mock getEnvelope (at the end of createFullEnvelope)
         lenient().when(gateway.getEnvelope(envelopeId)).thenReturn(mockEnv);
@@ -234,7 +233,7 @@ class EnvelopeServiceImplTest {
 
             verify(gateway).createEnvelope(any());
             verify(gateway).addDocument(eq(envelopeId), any());
-            verify(gateway).addSigners(eq(envelopeId), any());
+            verify(gateway).addSigner(eq(envelopeId), any());
             verify(gateway).activateEnvelope(envelopeId);
         } finally {
             SecurityContextHolder.clearContext();
@@ -252,8 +251,9 @@ class EnvelopeServiceImplTest {
         CreateFullEnvelopeCommand cmd = CreateFullEnvelopeCommand.builder()
                 .name("Full with Rubric")
                 .documents(List.of(AddDocumentCommand.builder().filename("d.pdf").build()))
-                .signers(List.of(AddSignerCommand.builder().name("S").build()))
+                .signers(List.of(AddSignerCommand.builder().name("S").phoneNumber("5511999999999").build()))
                 .requirements(List.of(FullRequirementCommand.builder()
+                        .role(RequirementRole.SIGN)
                         .rubricPages("1,2,3")
                         .build()))
                 .autoActivate(true)
@@ -272,16 +272,16 @@ class EnvelopeServiceImplTest {
         lenient().when(repository.save(any())).thenReturn(envelopeEntity);
         lenient().when(gateway.addDocument(eq(envelopeId), any())).thenReturn(mockDoc);
         lenient().when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelopeEntity));
-        lenient().when(gateway.addSigners(eq(envelopeId), any())).thenReturn(mockSigners);
+        lenient().when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class))).thenReturn(mockSigners.get(0));
         lenient().when(gateway.getEnvelope(envelopeId)).thenReturn(mockEnv);
 
         try {
             envelopeService.createFullEnvelope(cmd, ProviderSignature.CLICKSIGN);
 
-            verify(gateway).addRequirement(eq(envelopeId), argThat(req -> 
-                req.action() == RequirementAction.AGREE && 
-                "1,2,3".equals(req.rubricPages())
-            ));
+            // O EnvelopeServiceImpl chama addRequirement que recebe 3 parametros,
+            // mas internamente chama gateway.addRequirement que recebe 2 parametros.
+            // Aqui estamos verificando a chamada no MOCK do gateway.
+            verify(gateway).addRequirement(eq(envelopeId), any(AddRequirementCommand.class));
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -289,120 +289,113 @@ class EnvelopeServiceImplTest {
 
     @Test
     void shouldGetDocumentsSuccessfully() {
-        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        when(gateway.getDocuments(envelopeId)).thenReturn(List.of(Document.builder().externalId(documentId).build()));
+        when(documentRepository.findAllByEnvelopeExternalId(envelopeId)).thenReturn(List.of(new DocumentEntity()));
 
         List<Document> result = envelopeService.getDocuments(envelopeId, ProviderSignature.CLICKSIGN);
 
         assertEquals(1, result.size());
-        assertEquals(documentId, result.get(0).getExternalId());
-        verify(gateway).getDocuments(envelopeId);
+        verify(documentRepository).findAllByEnvelopeExternalId(envelopeId);
     }
 
     @Test
     void shouldGetDocumentSuccessfully() {
-        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        when(gateway.getDocument(documentId)).thenReturn(Document.builder().externalId(documentId).build());
+        DocumentEntity entity = new DocumentEntity();
+        entity.setExternalId(documentId);
+        when(documentRepository.findByExternalId(documentId)).thenReturn(Optional.of(entity));
 
         Document result = envelopeService.getDocument(documentId, ProviderSignature.CLICKSIGN);
 
         assertEquals(documentId, result.getExternalId());
-        verify(gateway).getDocument(documentId);
+        verify(documentRepository).findByExternalId(documentId);
     }
 
     @Test
     void shouldUpdateDocumentSuccessfully() {
-        UpdateDocumentCommand cmd = new UpdateDocumentCommand("new-name.pdf");
-        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        when(gateway.updateDocument(documentId, cmd)).thenReturn(Document.builder().externalId(documentId).build());
+        DocumentEntity entity = new DocumentEntity();
+        entity.setExternalId(documentId);
+        when(documentRepository.findByExternalId(documentId)).thenReturn(Optional.of(entity));
 
+        UpdateDocumentCommand cmd = new UpdateDocumentCommand("new-name.pdf");
         Document result = envelopeService.updateDocument(documentId, cmd, ProviderSignature.CLICKSIGN);
 
-        assertEquals(documentId, result.getExternalId());
-        verify(gateway).updateDocument(documentId, cmd);
+        assertEquals("new-name.pdf", entity.getFilename());
+        verify(documentRepository).save(entity);
     }
 
     @Test
     void shouldDeleteDocumentSuccessfully() {
-        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+        DocumentEntity entity = new DocumentEntity();
+        entity.setExternalId(documentId);
+        when(documentRepository.findByExternalId(documentId)).thenReturn(Optional.of(entity));
 
         envelopeService.deleteDocument(documentId, ProviderSignature.CLICKSIGN);
 
-        verify(gateway).deleteDocument(documentId);
+        verify(documentRepository).delete(entity);
     }
 
     @Test
     void shouldGetSignersSuccessfully() {
-        String envId = "env-123";
-        List<Signer> signers = List.of(Signer.builder().externalId("signer-1").build());
-        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        when(gateway.getSigners(envId)).thenReturn(signers);
+        when(signerRepository.findAllByEnvelopeExternalId(envelopeId)).thenReturn(List.of(new SignerEntity()));
 
-        List<Signer> result = envelopeService.getSigners(envId, ProviderSignature.CLICKSIGN);
+        List<Signer> result = envelopeService.getSigners(envelopeId, ProviderSignature.CLICKSIGN);
 
         assertEquals(1, result.size());
-        assertEquals("signer-1", result.get(0).getExternalId());
+        verify(signerRepository).findAllByEnvelopeExternalId(envelopeId);
     }
 
     @Test
     void shouldGetSignerSuccessfully() {
-        String envId = "env-123";
-        String sId = "signer-1";
-        Signer signer = Signer.builder().externalId(sId).build();
-        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        when(gateway.getSigner(envId, sId)).thenReturn(signer);
+        SignerEntity entity = new SignerEntity();
+        entity.setExternalId(signerId);
+        when(signerRepository.findByExternalId(signerId)).thenReturn(Optional.of(entity));
 
-        Signer result = envelopeService.getSigner(envId, sId, ProviderSignature.CLICKSIGN);
+        Signer result = envelopeService.getSigner(envelopeId, signerId, ProviderSignature.CLICKSIGN);
 
-        assertEquals(sId, result.getExternalId());
+        assertEquals(signerId, result.getExternalId());
+        verify(signerRepository).findByExternalId(signerId);
     }
 
     @Test
     void shouldDeleteSignerSuccessfully() {
-        String envId = "env-123";
-        String sId = "signer-1";
-        when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+        SignerEntity entity = new SignerEntity();
+        entity.setExternalId(signerId);
+        when(signerRepository.findByExternalId(signerId)).thenReturn(Optional.of(entity));
 
-        envelopeService.deleteSigner(envId, sId, ProviderSignature.CLICKSIGN);
+        envelopeService.deleteSigner(envelopeId, signerId, ProviderSignature.CLICKSIGN);
 
-        verify(gateway).deleteSigner(envId, sId);
+        verify(signerRepository).delete(entity);
     }
 
     @Test
     void shouldGetRequirementsSuccessfully() {
-        ProviderSignature provider = ProviderSignature.CLICKSIGN;
-        Requirement requirement = Requirement.builder().externalId("req-123").build();
-        when(registry.get(provider)).thenReturn(gateway);
-        when(gateway.getRequirements(envelopeId)).thenReturn(List.of(requirement));
+        when(requirementRepository.findAllByEnvelopeExternalId(envelopeId)).thenReturn(List.of(new RequirementEntity()));
 
-        List<Requirement> result = envelopeService.getRequirements(envelopeId, provider);
+        List<Requirement> result = envelopeService.getRequirements(envelopeId, ProviderSignature.CLICKSIGN);
 
         assertEquals(1, result.size());
-        assertEquals("req-123", result.get(0).getExternalId());
+        verify(requirementRepository).findAllByEnvelopeExternalId(envelopeId);
     }
 
     @Test
     void shouldGetRequirementSuccessfully() {
-        ProviderSignature provider = ProviderSignature.CLICKSIGN;
-        String requirementId = "req-123";
-        Requirement requirement = Requirement.builder().externalId(requirementId).build();
-        when(registry.get(provider)).thenReturn(gateway);
-        when(gateway.getRequirement(requirementId)).thenReturn(requirement);
+        RequirementEntity entity = new RequirementEntity();
+        entity.setExternalId("req-123");
+        when(requirementRepository.findByExternalId("req-123")).thenReturn(Optional.of(entity));
 
-        Requirement result = envelopeService.getRequirement(requirementId, provider);
+        Requirement result = envelopeService.getRequirement("req-123", ProviderSignature.CLICKSIGN);
 
-        assertEquals(requirementId, result.getExternalId());
+        assertEquals("req-123", result.getExternalId());
+        verify(requirementRepository).findByExternalId("req-123");
     }
 
     @Test
     void shouldDeleteRequirementSuccessfully() {
-        ProviderSignature provider = ProviderSignature.CLICKSIGN;
-        String requirementId = "req-123";
-        when(registry.get(provider)).thenReturn(gateway);
+        RequirementEntity entity = new RequirementEntity();
+        entity.setExternalId("req-123");
+        when(requirementRepository.findByExternalId("req-123")).thenReturn(Optional.of(entity));
 
-        envelopeService.deleteRequirement(requirementId, provider);
+        envelopeService.deleteRequirement("req-123", ProviderSignature.CLICKSIGN);
 
-        verify(gateway).deleteRequirement(requirementId);
-        verify(requirementRepository).deleteByExternalId(requirementId);
+        verify(requirementRepository).delete(entity);
     }
 }

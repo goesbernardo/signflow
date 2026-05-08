@@ -1,4 +1,4 @@
-package com.signflow.persistence;
+package com.signflow.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -8,11 +8,11 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "requirement")
+@Table(name = "document")
 @Getter
 @Setter
 @NoArgsConstructor
-public class RequirementEntity {
+public class DocumentEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,17 +21,11 @@ public class RequirementEntity {
     @Column(name = "external_id", unique = true)
     private String externalId;
 
+    private String filename;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "envelope_id", nullable = false)
     private EnvelopeEntity envelope;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "document_id", nullable = false)
-    private DocumentEntity document;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "signer_id", nullable = false)
-    private SignerEntity signer;
 
     private LocalDateTime created;
 }

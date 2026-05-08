@@ -1,5 +1,6 @@
-package com.signflow.persistence;
+package com.signflow.repository;
 
+import com.signflow.domain.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

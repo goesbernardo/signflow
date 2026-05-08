@@ -1,5 +1,6 @@
-package com.signflow.persistence;
+package com.signflow.repository;
 
+import com.signflow.domain.entity.EnvelopeEventEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,11 +1,9 @@
 package com.signflow.adapter.clicksign.webhook;
 
 import com.signflow.api.dto.ClickSignWebhookRootPayloadDTO;
+import com.signflow.domain.entity.EnvelopeEntity;
+import com.signflow.domain.entity.EnvelopeEventEntity;
 import com.signflow.enums.Status;
-import com.signflow.persistence.EnvelopeEntity;
-import com.signflow.persistence.EnvelopeEventEntity;
-import com.signflow.persistence.EnvelopeEventRepository;
-import com.signflow.persistence.SignatureRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -17,23 +15,24 @@ import java.util.Optional;
 
 /**
  * Processa os eventos de webhook do Aceite via WhatsApp recebidos da ClickSign.
- *
+ * <p>
  * Eventos tratados (type: acceptance_term_whatsapps):
- * - acceptance_term_enqueued  → na fila para envio
- * - acceptance_term_sent      → enviado ao destinatário
+ * - acceptance_term_enqueued → na fila para envio
+ * - acceptance_term_sent → enviado ao destinatário
  * - acceptance_term_completed → aceite confirmado
- * - acceptance_term_refused   → aceite recusado
- * - acceptance_term_expired   → expirado
- * - acceptance_term_canceled  → cancelado
- * - acceptance_term_error     → erro no envio
+ * - acceptance_term_refused → aceite recusado
+ * - acceptance_term_expired → expirado
+ * - acceptance_term_canceled → cancelado
+ * - acceptance_term_error → erro no envio
  */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ClickSignWhatsAppWebhookService {
 
-    private final SignatureRepository envelopeRepository;
-    private final EnvelopeEventRepository eventRepository;
+    private final com.signflow.repository.EnvelopeRepository envelopeRepository;
+    private final com.signflow.repository.EnvelopeEventRepository eventRepository;
 
     /**
      * Processa o payload no formato legado já deserializado pelo controller.

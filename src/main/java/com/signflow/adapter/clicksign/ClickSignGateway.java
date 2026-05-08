@@ -10,9 +10,7 @@ import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
-import com.signflow.enums.ProviderSignature;
-import com.signflow.enums.RequirementAction;
-import com.signflow.enums.RequirementAuth;
+import com.signflow.enums.*;
 import com.signflow.exception.domain.ErroDetail;
 import com.signflow.exception.domain.IntegrationException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -23,6 +21,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import static com.signflow.enums.RequirementAuth.*;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,16 +31,19 @@ public class ClickSignGateway implements ESignatureGateway {
 
     private final ClickSignIntegrationFeignClient clickSignClient;
     private final ClickSignMapper mapper;
-    private static final String ERR_UNAVAILABLE   = "Serviço ClickSign indisponível no momento. Tente novamente em instantes.";
-    private static final String ERR_FETCH_FAILED  = "Não foi possível consultar o envelope na ClickSign.";
-    private static final String ERR_DOC_FETCH_FAILED  = "Não foi possível consultar documentos na ClickSign.";
 
-    // ── createEnvelope ────────────────────────────────────────────────────────
+    private static final String ERR_UNAVAILABLE  = "Provedor indisponível";
+    private static final String ERR_FETCH_FAILED = "Não foi possível consultar";
+
+    // ── createEnvelope ────────────────────────────────────────────────────
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "createEnvelopeFallback")
     public Envelope createEnvelope(CreateEnvelopeCommand cmd) {
-        var body = ClickSignRequestApiDTO.of("envelopes", ClickSignEnvelopeAttributesDTO.builder().name(cmd.name()).build());
+        var body = ClickSignRequestApiDTO.of("envelopes",
+                ClickSignEnvelopeAttributesDTO.builder()
+                        .name(cmd.name())
+                        .build());
         log.info("Enviando requisição para ClickSign: {}", body);
         var response = clickSignClient.createEnvelope(body);
         log.info("Resposta recebida da ClickSign: {}", response);
@@ -52,12 +55,15 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
-    // ── updateEnvelope ────────────────────────────────────────────────────────
+    // ── updateEnvelope ────────────────────────────────────────────────────
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "updateEnvelopeFallback")
     public Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd) {
-        var body = ClickSignRequestApiDTO.of("envelopes", ClickSignEnvelopeAttributesDTO.builder().name(cmd.name()).build());
+        var body = ClickSignRequestApiDTO.of("envelopes",
+                ClickSignEnvelopeAttributesDTO.builder()
+                        .name(cmd.name())
+                        .build());
         log.info("Enviando atualização para ClickSign: {}", body);
         var response = clickSignClient.updateEnvelope(externalId, body);
         log.info("Resposta de atualização da ClickSign: {}", response);
@@ -69,7 +75,7 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
-    // ── getEnvelope ───────────────────────────────────────────────────────────
+    // ── getEnvelope ───────────────────────────────────────────────────────
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getEnvelopeFallback")
@@ -82,24 +88,19 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t, ERR_FETCH_FAILED);
     }
 
-    // ── addSigners ────────────────────────────────────────────────────────────
-    @Override
-    public List<Signer> addSigners(String envelopeId, List<AddSignerCommand> commands) {
-        return commands.stream()
-                .map(cmd -> this.addSignerInternal(envelopeId, cmd))
-                .toList();
-    }
+    // ── addSigner ─────────────────────────────────────────────────────────
 
+    @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addSignerFallback")
-    private Signer addSignerInternal(String envelopeId, AddSignerCommand cmd) {
+    public Signer addSigner(String envelopeId, AddSignerCommand cmd) {
         String documentation = cmd.documentation();
-        String signatureRequest = cmd.delivery() != null ? cmd.delivery() : "email";
-        String documentSigned = "sms".equalsIgnoreCase(signatureRequest) ? "email" : signatureRequest;
+        String signatureRequest = mapSignatureRequest(cmd.notificationChannel());
+        String documentSigned   = mapDocumentSigned(cmd.notificationChannel());
 
         ClickSignCreateSignEventsDTO events = ClickSignCreateSignEventsDTO.builder()
                 .signatureRequest(signatureRequest)
                 .signatureReminder("none")
-                .documentSigned(documentSigned) // ← fallback para email quando delivery = sms
+                .documentSigned(documentSigned)   // ← "email" quando SMS
                 .build();
 
         ClickSignCreateSignAttributesDTO attributes = ClickSignCreateSignAttributesDTO.builder()
@@ -128,52 +129,15 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getSignersFallback")
-    public List<Signer> getSigners(String envelopeId) {
-        log.info("Consultando signatários do envelope {} na ClickSign", envelopeId);
-        return mapper.toSignerListDomain(clickSignClient.getEnvelopeSigners(envelopeId));
-    }
-
-    private List<Signer> getSignersFallback(String envelopeId, Throwable t) {
-        log.error("Fallback getSigners — ClickSign: {}", t.getMessage());
-        throw translateException(t, "Erro ao buscar signatários do envelope.");
-    }
-
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getSignerFallback")
-    public Signer getSigner(String envelopeId, String signerId) {
-        log.info("Consultando signatário {} do envelope {} na ClickSign", signerId, envelopeId);
-        return mapper.toSignerDomain(clickSignClient.getSigner(envelopeId, signerId));
-    }
-
-    private Signer getSignerFallback(String envelopeId, String signerId, Throwable t) {
-        log.error("Fallback getSigner — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "deleteSignerFallback")
-    public void deleteSigner(String envelopeId, String signerId) {
-        log.info("Excluindo signatário {} do envelope {} na ClickSign", signerId, envelopeId);
-        clickSignClient.deleteSigner(envelopeId, signerId);
-    }
-
-    private void deleteSignerFallback(String envelopeId, String signerId, Throwable t) {
-        log.error("Fallback deleteSigner — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    // ── addDocument ───────────────────────────────────────────────────────────
+    // ── addDocument ───────────────────────────────────────────────────────
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addDocumentFallback")
     public Document addDocument(String envelopeId, AddDocumentCommand cmd) {
-        ClickSignCreateDocumentAttributesDTO attributes = ClickSignCreateDocumentAttributesDTO.builder()
+        var attributes = ClickSignCreateDocumentAttributesDTO.builder()
                 .filename(cmd.filename())
                 .contentBase64(cmd.contentBase64())
                 .build();
-
         var body = ClickSignRequestApiDTO.of("documents", attributes);
         return mapper.toDocumentDomain(clickSignClient.createDocument(envelopeId, body));
     }
@@ -183,90 +147,45 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getDocumentsFallback")
-    public List<Document> getDocuments(String envelopeId) {
-        log.info("Consultando documentos do envelope {} na ClickSign", envelopeId);
-        return mapper.toDocumentListDomain(clickSignClient.getDocuments(envelopeId));
-    }
+    // ── addRequirement ────────────────────────────────────────────────────
 
-    private List<Document> getDocumentsFallback(String envelopeId, Throwable t) {
-        log.error("Fallback getDocuments — ClickSign: {}", t.getMessage());
-        throw translateException(t, ERR_DOC_FETCH_FAILED);
-    }
-
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getDocumentFallback")
-    public Document getDocument(String documentId) {
-        log.info("Consultando documento {} na ClickSign", documentId);
-        return mapper.toDocumentDomain(clickSignClient.getDocument(documentId));
-    }
-
-    private Document getDocumentFallback(String documentId, Throwable t) {
-        log.error("Fallback getDocument — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "updateDocumentFallback")
-    public Document updateDocument(String documentId, UpdateDocumentCommand cmd) {
-        var attributes = ClickSignCreateDocumentAttributesDTO.builder()
-                .filename(cmd.filename())
-                .build();
-        var body = ClickSignRequestApiDTO.of("documents", attributes);
-        log.info("Atualizando documento {} na ClickSign: {}", documentId, body);
-        return mapper.toDocumentDomain(clickSignClient.updateDocument(documentId, body));
-    }
-
-    private Document updateDocumentFallback(String documentId, UpdateDocumentCommand cmd, Throwable t) {
-        log.error("Fallback updateDocument — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "deleteDocumentFallback")
-    public void deleteDocument(String documentId) {
-        log.info("Excluindo documento {} na ClickSign", documentId);
-        clickSignClient.deleteDocument(documentId);
-    }
-
-    private void deleteDocumentFallback(String documentId, Throwable t) {
-        log.error("Fallback deleteDocument — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    // ── addRequirement ────────────────────────────────────────────────────────
-
+    /**
+     * A ClickSign exige dois tipos de requisito por signatário:
+     * <p>
+     * 1. Qualificação: action="agree" + role (mapeia SignerRole)
+     * 2. Autenticação: action="provide_evidence" + auth (mapeia SignatureAuthMethod)
+     * <p>
+     * O campo action é determinado internamente pelo gateway baseado
+     * no que foi preenchido no command — não é mais exposto para o domínio.
+     * Outros providers implementarão sua própria lógica de requisitos.
+     */
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addRequirementFallback")
     public Requirement addRequirement(String envelopeId, AddRequirementCommand cmd) {
 
-        // auth só vai quando action = PROVIDE_EVIDENCE
-        RequirementAuth auth = RequirementAction.PROVIDE_EVIDENCE.equals(cmd.action())
-                ? cmd.auth() : null;
+        ClickSignRequirementsAttributesDTO attributes;
 
-        // rubric_pages só vai quando action = AGREE ou RUBRICATE
-        String rubricPages = (RequirementAction.AGREE.equals(cmd.action()) || RequirementAction.RUBRICATE.equals(cmd.action()))
-                ? cmd.rubricPages() : null;
+        if (cmd.role() != null) {
+            attributes = ClickSignRequirementsAttributesDTO.builder()
+                    .action(RequirementAction.AGREE)
+                    .role(mapSignerRole(cmd.role()))
+                    .build();
 
-        log.info("=== REQUIREMENT REQUEST ===");
-        log.info("EnvelopeId: {}", envelopeId);
-        log.info("Action: {}", cmd.action());
-        log.info("Auth: {}", auth);
-        log.info("Role: {}", cmd.role());
-        log.info("RubricPages: {}", rubricPages);
-        log.info("SignerId: {}", cmd.signerId());
-        log.info("DocumentId: {}", cmd.documentId());
-        log.info("===========================");
+        } else if (cmd.auth() != null) {
+            attributes = ClickSignRequirementsAttributesDTO.builder()
+                    .action(RequirementAction.PROVIDE_EVIDENCE)
+                    .auth(mapAuthMethod(cmd.auth()))
+                    .build();
 
-        ClickSignRequirementsAttributesDTO attributes = ClickSignRequirementsAttributesDTO.builder()
-                .action(cmd.action())
-                .auth(auth)
-                .role(cmd.role())
-                .rubricPages(rubricPages)
-                .build();
+        } else {
+            log.warn("AddRequirementCommand sem role nem auth — usando qualificação padrão (agree + sign)");
+            attributes = ClickSignRequirementsAttributesDTO.builder()
+                    .action(RequirementAction.AGREE)
+                    .role(RequirementRole.SIGN)
+                    .build();
+        }
 
-        ClickSignRequirementsRelationshipDTO relationships = ClickSignRequirementsRelationshipDTO.builder()
+        var relationships = ClickSignRequirementsRelationshipDTO.builder()
                 .document(RelationshipDataDTO.builder()
                         .data(DataIdDTO.builder().type("documents").id(cmd.documentId()).build())
                         .build())
@@ -276,8 +195,7 @@ public class ClickSignGateway implements ESignatureGateway {
                 .build();
 
         var body = ClickSignRequestApiDTO.of("requirements", attributes, relationships);
-        log.info("Criando requisito no envelope {}: action={}, auth={}, role={}, rubric_pages={}",
-                envelopeId, cmd.action(), auth, cmd.role(), rubricPages);
+        log.info("Criando requisito no envelope {}: action={}", envelopeId, attributes.action());
         return mapper.toRequirementDomain(clickSignClient.createRequirements(envelopeId, body));
     }
 
@@ -286,43 +204,7 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getRequirementsFallback")
-    public List<Requirement> getRequirements(String envelopeId) {
-        log.info("Buscando requisitos do envelope {}", envelopeId);
-        return mapper.toRequirementListDomain(clickSignClient.getRequirements(envelopeId));
-    }
-
-    private List<Requirement> getRequirementsFallback(String envelopeId, Throwable t) {
-        log.error("Fallback getRequirements — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "getRequirementFallback")
-    public Requirement getRequirement(String requirementId) {
-        log.info("Buscando requisito {}", requirementId);
-        return mapper.toRequirementDomain(clickSignClient.getRequirement(requirementId));
-    }
-
-    private Requirement getRequirementFallback(String requirementId, Throwable t) {
-        log.error("Fallback getRequirement — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    @Override
-    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "deleteRequirementFallback")
-    public void deleteRequirement(String requirementId) {
-        log.info("Excluindo requisito {}", requirementId);
-        clickSignClient.deleteRequirement(requirementId);
-    }
-
-    private void deleteRequirementFallback(String requirementId, Throwable t) {
-        log.error("Fallback deleteRequirement — ClickSign: {}", t.getMessage());
-        throw translateException(t);
-    }
-
-    // ── activateEnvelope ──────────────────────────────────────────────────────
+    // ── activateEnvelope ──────────────────────────────────────────────────
 
     @Override
     @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "activateEnvelopeFallback")
@@ -330,8 +212,7 @@ public class ClickSignGateway implements ESignatureGateway {
         var attributes = ClicksignActivateAttributesDTO.builder()
                 .status("running")
                 .build();
-        var body = ClickSignRequestApiDTO.of(envelopeId, "envelopes", attributes); // ← com id
-        log.info("Ativando envelope na ClickSign: {}", body);
+        var body = ClickSignRequestApiDTO.of(envelopeId, "envelopes", attributes);
         clickSignClient.activateEnvelope(envelopeId, body);
     }
 
@@ -340,41 +221,94 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
+    // ── provider ──────────────────────────────────────────────────────────
+
+    @Override
+    public ProviderSignature provider() {
+        return ProviderSignature.CLICKSIGN;
+    }
+
+    // ── Mapeamento de enums do domínio → Strings da ClickSign ─────────────
+
+    /**
+     * Mapeia SignatureAuthMethod (domínio neutro) para o valor
+     * aceito pelo campo auth da ClickSign API v3.
+     *
+     * Quando novos providers forem implementados, cada um terá
+     * seu próprio método de mapeamento sem afetar este.
+     */
+    private RequirementAuth mapAuthMethod(SignatureAuthMethod auth) {
+        if (auth == null) return RequirementAuth.EMAIL;
+        return switch (auth) {
+            case EMAIL             -> RequirementAuth.EMAIL;
+            case SMS               -> RequirementAuth.SMS;
+            case WHATSAPP          -> RequirementAuth.WHATSAPP;
+            case PIX               -> RequirementAuth.PIX;
+            case HANDWRITTEN       -> RequirementAuth.HANDWRITTEN;
+            case FACIAL_BIOMETRICS -> RequirementAuth.FACIAL_BIOMETRICS;
+            case API               -> RequirementAuth.API;
+            case AUTO              -> RequirementAuth.AUTO_SIGNATURE;
+        };
+    }
+
+    /**
+     * Mapeia SignerRole (domínio neutro) para o valor
+     * aceito pelo campo role da ClickSign API v3.
+     */
+    private RequirementRole mapSignerRole(SignerRole role) {
+        if (role == null) return RequirementRole.SIGN;
+        return switch (role) {
+            case SIGN -> RequirementRole.SIGN;
+            case PARTY -> RequirementRole.RECEIPT;      // mais próximo semânticamente
+            case CONTRACTOR -> RequirementRole.CONTRACTOR;
+            case WITNESS -> RequirementRole.ATTORNEY;     // sem WITNESS no RequirementRole
+            case INTERVENING -> RequirementRole.INTERVENING;
+        };
+    }
+
+    // ── Tratamento de erros ───────────────────────────────────────────────
+
     private RuntimeException translateException(Throwable t) {
         return translateException(t, ERR_UNAVAILABLE);
     }
 
     private RuntimeException translateException(Throwable t, String defaultMessage) {
         if (t instanceof ClickSignIntegrationException clickSignEx) {
-            List<ErroDetail> details = extractDetails(clickSignEx);
-            String message = (clickSignEx.getMessage() != null && !clickSignEx.getMessage().isBlank())
+            String message = clickSignEx.getMessage() != null && !clickSignEx.getMessage().isBlank()
                     ? clickSignEx.getMessage()
                     : defaultMessage;
+
+            List<ErroDetail> details = clickSignEx.getErrors() == null ? null
+                    : clickSignEx.getErrors().stream()
+                      .map(error -> ErroDetail.builder()
+                                    .code(error.getCode())
+                                    .message(error.getDetail())
+                                    .field(error.getSource() != null ? error.getSource().getPointer() : null)
+                                    .build())
+                      .toList();
             return new IntegrationException(message, clickSignEx.getRawResponse(), details, t);
         }
-        if (t instanceof IntegrationException integrationEx) {
-            return integrationEx;
+        if (t instanceof IntegrationException ex) {
+            return ex;
         }
         return new IntegrationException(defaultMessage, null, t);
     }
 
-    private List<ErroDetail> extractDetails(ClickSignIntegrationException ex) {
-        if (ex.getErrors() == null || ex.getErrors().isEmpty()) {
-            return List.of();
-        }
-        return ex.getErrors().stream()
-                .map(error -> ErroDetail.builder()
-                        .code(error.getCode())
-                        .message(error.getDetail())
-                        .field(error.getSource() != null ? error.getSource().getPointer() : null)
-                        .build())
-                .toList();
+    private String mapSignatureRequest(NotificationChannel channel) {
+        if (channel == null) return "email";
+        return switch (channel) {
+            case EMAIL    -> "email";
+            case SMS      -> "sms";       // ← link por SMS ✅
+            case WHATSAPP -> "whatsapp";
+        };
     }
 
-    // ── provider ──────────────────────────────────────────────────────────────
-
-    @Override
-    public ProviderSignature provider() {
-        return ProviderSignature.CLICKSIGN;
+    private String mapDocumentSigned(NotificationChannel channel) {
+        if (channel == null) return "email";
+        return switch (channel) {
+            case EMAIL    -> "email";
+            case SMS      -> "email";     // ← fallback obrigatório ✅
+            case WHATSAPP -> "whatsapp";
+        };
     }
 }

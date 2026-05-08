@@ -1,4 +1,4 @@
-package com.signflow.persistence;
+package com.signflow.domain.entity;
 
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "envelope_request")

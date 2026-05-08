@@ -1,15 +1,13 @@
 package com.signflow.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.signflow.application.EnvelopeService;
+import com.signflow.service.SignatureService;
 import com.signflow.config.JwtAuthenticationFilter;
 import com.signflow.config.JwtUtils;
 import com.signflow.domain.command.AddDocumentCommand;
 import com.signflow.domain.command.AddSignerCommand;
 import com.signflow.domain.command.CreateFullEnvelopeCommand;
 import com.signflow.domain.model.Envelope;
-import com.signflow.domain.model.Requirement;
-import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
 import org.junit.jupiter.api.Test;
@@ -23,14 +21,12 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.LocaleResolver;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -48,7 +44,7 @@ public class SignatureControllerTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private EnvelopeService envelopeService;
+    private SignatureService signatureService;
 
     @MockBean
     private JwtUtils jwtUtils;
@@ -78,7 +74,7 @@ public class SignatureControllerTest {
                 .status(Status.ACTIVE)
                 .build();
 
-        when(envelopeService.createFullEnvelope(any(CreateFullEnvelopeCommand.class), eq(ProviderSignature.CLICKSIGN)))
+        when(signatureService.createFullEnvelope(any(CreateFullEnvelopeCommand.class), eq(ProviderSignature.CLICKSIGN)))
                 .thenReturn(mockResponse);
 
         mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")

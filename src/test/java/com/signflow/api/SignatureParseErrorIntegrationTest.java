@@ -1,7 +1,6 @@
 package com.signflow.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.signflow.application.EnvelopeService;
+import com.signflow.service.SignatureService;
 import com.signflow.config.JwtAuthenticationFilter;
 import com.signflow.config.JwtUtils;
 import com.signflow.exception.GlobalExceptionHandler;
@@ -15,8 +14,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.LocaleResolver;
-
-import java.util.Locale;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -33,7 +30,7 @@ public class SignatureParseErrorIntegrationTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private EnvelopeService envelopeService;
+    private SignatureService signatureService;
 
     @MockBean
     private JwtUtils jwtUtils;
@@ -92,7 +89,7 @@ public class SignatureParseErrorIntegrationTest {
                 """;
 
         // Precisamos mockar o service para não dar erro de lógica interna se o parse passar
-        when(envelopeService.createFullEnvelope(any(), any())).thenReturn(com.signflow.domain.model.Envelope.builder().build());
+        when(signatureService.createFullEnvelope(any(), any())).thenReturn(com.signflow.domain.model.Envelope.builder().build());
 
         mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")

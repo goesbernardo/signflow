@@ -1,4 +1,4 @@
-package com.signflow.persistence;
+package com.signflow.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

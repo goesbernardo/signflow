@@ -1,11 +1,15 @@
 package com.signflow.adapter.clicksign.webhook;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signflow.adapter.clicksign.dto.WebhookAttributesDTO;
 import com.signflow.api.dto.ClickSignWebhookRootPayloadDTO;
+import com.signflow.domain.entity.EnvelopeEntity;
+import com.signflow.domain.entity.EnvelopeEventEntity;
+import com.signflow.domain.entity.SignerEntity;
 import com.signflow.enums.ClickSignWebhookEvent;
 import com.signflow.enums.Status;
-import com.signflow.persistence.*;
+import com.signflow.repository.EnvelopeEventRepository;
+import com.signflow.repository.EnvelopeRepository;
+import com.signflow.repository.SignerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -21,7 +25,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ClickSignWebhookService {
 
-        private final SignatureRepository envelopeRepository;
+        private final EnvelopeRepository envelopeRepository;
         private final SignerRepository signerRepository;
         private final EnvelopeEventRepository eventRepository;
 

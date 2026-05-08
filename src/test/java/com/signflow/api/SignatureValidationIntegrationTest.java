@@ -1,6 +1,6 @@
 package com.signflow.api;
 
-import com.signflow.application.EnvelopeService;
+import com.signflow.service.SignatureService;
 import com.signflow.config.JwtAuthenticationFilter;
 import com.signflow.config.JwtUtils;
 import com.signflow.exception.GlobalExceptionHandler;
@@ -29,7 +29,7 @@ public class SignatureValidationIntegrationTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private EnvelopeService envelopeService;
+    private SignatureService signatureService;
 
     @MockBean
     private JwtUtils jwtUtils;
@@ -123,7 +123,7 @@ public class SignatureValidationIntegrationTest {
                 }
                 """;
 
-        when(envelopeService.createFullEnvelope(any(), any())).thenReturn(com.signflow.domain.model.Envelope.builder().build());
+        when(signatureService.createFullEnvelope(any(), any())).thenReturn(com.signflow.domain.model.Envelope.builder().build());
 
         mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")

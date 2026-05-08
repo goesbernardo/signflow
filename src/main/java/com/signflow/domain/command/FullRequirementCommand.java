@@ -11,21 +11,21 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record FullRequirementCommand(
-        /**
-         * Obrigatório quando action = PROVIDE_EVIDENCE
-         * Ex: EMAIL, SMS, WHATSAPP
+        /*
+          Obrigatório quando action = PROVIDE_EVIDENCE
+          Ex: EMAIL, SMS, WHATSAPP
          */
         RequirementAuth auth,
 
-        /**
-         * Obrigatório quando action = AGREE
-         * Ex: SIGN, WITNESS, INTERVENING
+        /*
+          Obrigatório quando action = AGREE
+          Ex: SIGN, WITNESS, INTERVENING
          */
         RequirementRole role,
 
-        /**
-         * Opcional — páginas para rubrica quando action = AGREE
-         * Ex: "all" ou "1,2,3"
+        /*
+          Opcional — páginas para rubrica quando action = AGREE
+          Ex: "all" ou "1,2,3"
          */
         @JsonProperty("rubric_pages")
         String rubricPages
