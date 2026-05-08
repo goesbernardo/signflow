@@ -1,6 +1,7 @@
 package com.signflow.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signflow.api.controller.AuthController;
 import com.signflow.api.dto.LoginRequest;
 import com.signflow.config.JwtAuthenticationFilter;
 import com.signflow.config.JwtUtils;

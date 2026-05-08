@@ -1,12 +1,13 @@
 package com.signflow.application;
 
-import com.signflow.adapter.ESignatureGateway;
-import com.signflow.adapter.SignatureGatewayRegistry;
+import com.signflow.application.port.out.ESignatureGateway;
+import com.signflow.application.service.impl.SignatureServiceImpl;
 import com.signflow.domain.command.*;
-import com.signflow.domain.entity.DocumentEntity;
-import com.signflow.domain.entity.EnvelopeEntity;
-import com.signflow.domain.entity.RequirementEntity;
-import com.signflow.domain.entity.SignerEntity;
+import com.signflow.infrastructure.gateway.SignatureGatewayRegistry;
+import com.signflow.infrastructure.persistence.entity.DocumentEntity;
+import com.signflow.infrastructure.persistence.entity.EnvelopeEntity;
+import com.signflow.infrastructure.persistence.entity.RequirementEntity;
+import com.signflow.infrastructure.persistence.entity.SignerEntity;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
@@ -14,8 +15,8 @@ import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.RequirementRole;
 import com.signflow.enums.Status;
-import com.signflow.repository.*;
-import com.signflow.service.impl.SignatureServiceImpl;
+import com.signflow.infrastructure.persistence.repository.*;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

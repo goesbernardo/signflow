@@ -1,9 +1,10 @@
 package com.signflow.api;
 
-import com.signflow.service.SignatureService;
+import com.signflow.api.controller.SignatureController;
+import com.signflow.application.port.in.SignatureService;
 import com.signflow.config.JwtAuthenticationFilter;
 import com.signflow.config.JwtUtils;
-import com.signflow.exception.GlobalExceptionHandler;
+import com.signflow.infrastructure.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
