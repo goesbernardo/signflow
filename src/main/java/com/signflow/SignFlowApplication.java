@@ -9,7 +9,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
                 org.springframework.boot.autoconfigure.web.client.RestClientAutoConfiguration.class
         }
 )
-@EnableFeignClients(basePackages = "com.signflow.adapter")
+@EnableFeignClients(basePackages = {"com.signflow.adapter", "com.signflow.infrastructure"})
 public class SignFlowApplication {
 
     public static void main(String[] args) {

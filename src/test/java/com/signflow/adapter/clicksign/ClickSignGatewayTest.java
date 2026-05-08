@@ -1,8 +1,9 @@
 package com.signflow.adapter.clicksign;
 
-import com.signflow.adapter.clicksign.client.ClickSignIntegrationFeignClient;
-import com.signflow.adapter.clicksign.dto.*;
-import com.signflow.adapter.clicksign.mapper.ClickSignMapper;
+import com.signflow.infrastructure.provider.clicksign.ClickSignGateway;
+import com.signflow.infrastructure.provider.clicksign.client.ClickSignIntegrationFeignClient;
+import com.signflow.infrastructure.provider.clicksign.dto.*;
+import com.signflow.infrastructure.provider.clicksign.mapper.ClickSignMapper;
 import com.signflow.domain.command.AddDocumentCommand;
 import com.signflow.domain.command.AddRequirementCommand;
 import com.signflow.domain.command.AddSignerCommand;
@@ -12,7 +13,7 @@ import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.*;
-import com.signflow.exception.domain.IntegrationException;
+import com.signflow.infrastructure.exception.IntegrationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

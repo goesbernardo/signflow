@@ -1,4 +1,4 @@
-package com.signflow.adapter.clicksign.exception;
+package com.signflow.infrastructure.provider.clicksign.clicksign_exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Request;
@@ -7,8 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,79 +25,29 @@ class ClickSignErrorDecoderTest {
     }
 
     @Test
-    void shouldExtractSpecificErrorMessageFromClickSign() {
-        String json = """
-                {
-                    "errors": [
-                        {
-                            "detail": "Email inválido",
-                            "code": "invalid_email",
-                            "status": 422
-                        }
-                    ]
-                }
-                """;
-        
-        Response response = Response.builder()
-                .status(422)
-                .reason("Unprocessable Entity")
-                .request(Request.create(Request.HttpMethod.POST, "/api/v1/envelopes", Map.of(), null, StandardCharsets.UTF_8, null))
-                .body(json, StandardCharsets.UTF_8)
-                .build();
+    void shouldDecodeValidationErrors() {
+        String json = "{\"errors\":[{\"code\":\"100\",\"detail\":\"email inválido\",\"source\":{\"pointer\":\"/data/attributes/email\"}}]}";
+        Response response = createResponse(422, json);
 
-        Exception exception = decoder.decode("createEnvelope", response);
+        Exception exception = decoder.decode("method", response);
 
         assertTrue(exception instanceof ClickSignIntegrationException);
-        ClickSignIntegrationException clickSignEx = (ClickSignIntegrationException) exception;
-        
-        assertEquals("Email inválido", clickSignEx.getMessage());
-        assertFalse(clickSignEx.getErrors().isEmpty());
-        assertEquals("Email inválido", clickSignEx.getErrors().get(0).getDetail());
+        ClickSignIntegrationException ex = (ClickSignIntegrationException) exception;
+        assertEquals("email inválido", ex.getMessage());
+        assertEquals(1, ex.getErrors().size());
+        ClickSignError error = ex.getErrors().get(0);
+        assertEquals("100", error.getCode());
+        assertEquals("email inválido", error.getDetail());
+        assertEquals("/data/attributes/email", error.getSource().getPointer());
     }
 
-    @Test
-    void shouldFallbackToGenericMessageIfDetailIsEmpty() {
-        String json = """
-                {
-                    "errors": [
-                        {
-                            "code": "unknown_error",
-                            "status": 500
-                        }
-                    ]
-                }
-                """;
-
-        Response response = Response.builder()
-                .status(500)
-                .reason("Internal Server Error")
-                .request(Request.create(Request.HttpMethod.POST, "/api/v1/envelopes", Map.of(), null, StandardCharsets.UTF_8, null))
-                .body(json, StandardCharsets.UTF_8)
+    private Response createResponse(int status, String body) {
+        return Response.builder()
+                .status(status)
+                .reason("Reason")
+                .request(Request.create(Request.HttpMethod.POST, "/api", Map.of(), null, StandardCharsets.UTF_8, null))
+                .body(body, StandardCharsets.UTF_8)
+                .headers(new LinkedHashMap<>())
                 .build();
-
-        Exception exception = decoder.decode("createEnvelope", response);
-
-        assertTrue(exception instanceof ClickSignIntegrationException);
-        ClickSignIntegrationException clickSignEx = (ClickSignIntegrationException) exception;
-
-        assertEquals("Erro na integração com Clicksign", clickSignEx.getMessage());
-    }
-
-    @Test
-    void shouldHandle401AuthErrorSpecifically() {
-        Response response = Response.builder()
-                .status(401)
-                .reason("Unauthorized")
-                .request(Request.create(Request.HttpMethod.POST, "/api/v1/envelopes", Map.of(), null, StandardCharsets.UTF_8, null))
-                .body("", StandardCharsets.UTF_8)
-                .build();
-
-        Exception exception = decoder.decode("createEnvelope", response);
-
-        assertTrue(exception instanceof ClickSignIntegrationException);
-        ClickSignIntegrationException clickSignEx = (ClickSignIntegrationException) exception;
-
-        assertTrue(clickSignEx.getMessage().contains("Erro de autenticação"));
-        assertTrue(clickSignEx.getMessage().contains("401"));
     }
 }

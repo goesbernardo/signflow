@@ -1,7 +1,8 @@
 package com.signflow.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.signflow.service.SignatureService;
+import com.signflow.api.controller.SignatureController;
+import com.signflow.application.port.in.SignatureService;
 import com.signflow.config.JwtAuthenticationFilter;
 import com.signflow.config.JwtUtils;
 import com.signflow.domain.command.AddDocumentCommand;
