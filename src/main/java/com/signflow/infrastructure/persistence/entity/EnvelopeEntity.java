@@ -32,6 +32,23 @@ public class EnvelopeEntity {
     @Column(name = "external_id",unique = true)
     private String externalId;
 
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "callback_url")
+    private String callbackUrl;
+
+    @PrePersist
+    protected void onCreate() {
+        created = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
     @OneToMany(mappedBy = "envelope", cascade = CascadeType.ALL, orphanRemoval = true)
     private java.util.List<SignerEntity> signers;
 

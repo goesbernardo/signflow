@@ -12,5 +12,8 @@ public record EnvelopeTimelineResponse(
     Status previousStatus,
     Status newStatus,
     String source,
+    String providerEvent,
+    String providerStatus,
+    String signerExternalId,
     LocalDateTime occurredAt
 ) {}

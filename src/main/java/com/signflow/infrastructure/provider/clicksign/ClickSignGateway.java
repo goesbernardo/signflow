@@ -249,6 +249,35 @@ public class ClickSignGateway implements ESignatureGateway {
         throw translateException(t);
     }
 
+    @Override
+    @CircuitBreaker(name = "clicksign-circuit-breaker", fallbackMethod = "addNotifierFallback")
+    public String addNotifier(String envelopeId, AddNotifierCommand cmd) {
+        log.info("Adicionando observador {} ao envelope {}", cmd.email(), envelopeId);
+        try {
+            var attributes = ClickSignNotifierAttributesDTO.builder()
+                    .email(cmd.email())
+                    .name(cmd.name())
+                    .build();
+
+            var request = ClickSignRequestApiDTO.<ClickSignRequestApiDataDTO<ClickSignNotifierAttributesDTO, Void>>builder()
+                    .data(ClickSignRequestApiDataDTO.<ClickSignNotifierAttributesDTO, Void>builder()
+                            .type("notifiers")
+                            .attributes(attributes)
+                            .build())
+                    .build();
+
+            var response = clickSignClient.createNotifier(envelopeId, request);
+            return response.data().id();
+        } catch (Exception e) {
+            throw translateException(e, "Erro ao adicionar observador na ClickSign");
+        }
+    }
+
+    private void addNotifierFallback(String envelopeId, AddNotifierCommand cmd, Throwable t) {
+        log.error("Fallback addNotifier — ClickSign: {}", t.getMessage());
+        throw translateException(t);
+    }
+
     // ── provider ──────────────────────────────────────────────────────────
 
     @Override
@@ -257,6 +286,23 @@ public class ClickSignGateway implements ESignatureGateway {
     }
 
     // ── Mapeamento de enums do domínio → Strings da ClickSign ─────────────
+
+    public String mapSignatureRequest(NotificationChannel channel) {
+        if (channel == null) return "email";
+        return switch (channel) {
+            case EMAIL    -> "email";
+            case SMS      -> "sms";
+            case WHATSAPP -> "whatsapp";
+        };
+    }
+
+    public String mapDocumentSigned(NotificationChannel channel) {
+        if (channel == null) return "email";
+        return switch (channel) {
+            case EMAIL, SMS -> "email";
+            case WHATSAPP -> "whatsapp";
+        };
+    }
 
     /**
      * Mapeia SignatureAuthMethod (domínio neutro) para o valor
@@ -320,22 +366,5 @@ public class ClickSignGateway implements ESignatureGateway {
             return ex;
         }
         return new IntegrationException(defaultMessage, null, t);
-    }
-
-    private String mapSignatureRequest(NotificationChannel channel) {
-        if (channel == null) return "email";
-        return switch (channel) {
-            case EMAIL    -> "email";
-            case SMS      -> "sms";
-            case WHATSAPP -> "whatsapp";
-        };
-    }
-
-    private String mapDocumentSigned(NotificationChannel channel) {
-        if (channel == null) return "email";
-        return switch (channel) {
-            case EMAIL, SMS -> "email";
-            case WHATSAPP -> "whatsapp";
-        };
     }
 }

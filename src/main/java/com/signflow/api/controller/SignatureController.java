@@ -2,11 +2,12 @@ package com.signflow.api.controller;
 
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import com.signflow.application.port.in.SignatureService;
+import com.signflow.domain.command.AddNotifierCommand;
 import com.signflow.domain.command.CreateFullEnvelopeCommand;
-import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.command.UpdateDocumentCommand;
-import com.signflow.domain.model.Envelope;
+import com.signflow.domain.command.UpdateEnvelopeCommand;
 import com.signflow.domain.model.Document;
+import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
@@ -64,7 +65,7 @@ public class SignatureController {
             @ApiResponse(responseCode = "404", description = "Envelope não encontrado"),
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = org.springframework.web.ErrorResponse.class)))
     })
-    public ResponseEntity<Envelope> getEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+    public ResponseEntity<Envelope> getEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader(value = "provider", required = false) ProviderSignature provider,
                                                @Parameter(description = "Incluir detalhes dos signatários") @RequestParam(required = false, defaultValue = "false") boolean includeSigners,
                                                @PathVariable String externalId) {
         Envelope response = signatureService.getEnvelope(externalId, provider, includeSigners);
@@ -80,7 +81,7 @@ public class SignatureController {
             @ApiResponse(responseCode = "404", description = "Envelope não encontrado"),
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor", content = @Content(schema = @Schema(implementation = org.springframework.web.ErrorResponse.class)))
     })
-    public ResponseEntity<Envelope> updateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider, @PathVariable String externalId,
+    public ResponseEntity<Envelope> updateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader(value = "provider", required = false) ProviderSignature provider, @PathVariable String externalId,
                                                    @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = "{ \"name\": \"Contrato Atualizado v2\" }")))
                                                    @RequestBody @Valid UpdateEnvelopeCommand command) {
         Envelope response = signatureService.updateEnvelope(externalId, command, provider);
@@ -109,7 +110,7 @@ public class SignatureController {
             @ApiResponse(responseCode = "401", description = "Não autorizado"),
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
-    public ResponseEntity<Envelope> createFullEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+    public ResponseEntity<Envelope> createFullEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader(value = "provider", required = false) ProviderSignature provider,
                                                        @RequestBody @Valid CreateFullEnvelopeCommand command) {
         Envelope response = signatureService.createFullEnvelope(command, provider);
         log.info("Envelope completo criado com sucesso: {}", response != null ? response.getExternalId() : "null");
@@ -125,7 +126,7 @@ public class SignatureController {
             @ApiResponse(responseCode = "404", description = "Envelope não encontrado"),
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
-    public ResponseEntity<Void> cancelEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+    public ResponseEntity<Void> cancelEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader(value = "provider", required = false) ProviderSignature provider,
                                                @PathVariable String externalId) {
         signatureService.cancelEnvelope(externalId, provider);
         return ResponseEntity.noContent().build();
@@ -140,7 +141,7 @@ public class SignatureController {
             @ApiResponse(responseCode = "409", description = "O envelope não está em status permitido para ativação"),
             @ApiResponse(responseCode = "502", description = "Falha de integração com o provedor")
     })
-    public ResponseEntity<Void> activateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader("provider") ProviderSignature provider,
+    public ResponseEntity<Void> activateEnvelope(@Parameter(description = "Provedor de assinatura", example = "CLICKSIGN") @RequestHeader(value = "provider", required = false) ProviderSignature provider,
                                                  @PathVariable String externalId) {
         try {
             signatureService.activateEnvelope(externalId, provider);
@@ -219,11 +220,30 @@ public class SignatureController {
     @PostMapping("/{envelopeId}/signers/{signerId}/remind")
     @Operation(summary = "Lembrar signatário", description = "Envia um lembrete manual para o signatário assinar o documento.")
     public ResponseEntity<Void> remindSigner(
-            @RequestHeader("provider") ProviderSignature provider,
+                @RequestHeader(value = "provider", required = false) ProviderSignature provider,
             @PathVariable String envelopeId,
             @PathVariable String signerId) {
         log.info("Recebida requisição de lembrete para o signatário {} do envelope {} no provedor {}", signerId, envelopeId, provider);
         signatureService.remindSigner(envelopeId, signerId, provider);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{envelopeId}/notifiers")
+    @Operation(summary = "Adicionar observador", description = "Adiciona um observador (notifier) ao envelope para receber notificações de eventos.")
+    public ResponseEntity<Void> addNotifier(
+                @RequestHeader(value = "provider", required = false) ProviderSignature provider,
+            @PathVariable String envelopeId,
+            @RequestBody @Valid AddNotifierCommand command) {
+        log.info("Recebida requisição para adicionar observador ao envelope {} no provedor {}", envelopeId, provider);
+        signatureService.addNotifier(envelopeId, command, provider);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @GetMapping("/{externalId}/webhook-deliveries")
+    @Operation(summary = "Histórico de webhooks", description = "Retorna o histórico de tentativas de entrega de webhooks outbound para o cliente.")
+    public ResponseEntity<List<com.signflow.api.dto.OutboundWebhookDeliveryResponse>> getWebhookDeliveries(
+            @PathVariable String externalId) {
+        log.info("Recebida requisição de histórico de webhooks para o envelope {}", externalId);
+        return ResponseEntity.ok(signatureService.getWebhookDeliveries(externalId));
     }
 }

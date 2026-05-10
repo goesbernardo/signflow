@@ -2,6 +2,7 @@ package com.signflow.api.controller;
 
 import com.signflow.api.dto.LoginRequest;
 import com.signflow.api.dto.LoginResponse;
+import com.signflow.application.service.AuditLogService;
 import com.signflow.config.JwtUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -31,6 +32,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final JwtUtils jwtUtils;
+    private final AuditLogService auditLogService;
 
     @Operation(summary = "Realizar login", description = "Autentica um usuário e retorna um token JWT para acesso às APIs protegidas.")
     @ApiResponse(responseCode = "200", description = "Login realizado com sucesso", content = @Content(schema = @Schema(implementation = LoginResponse.class), examples = @ExampleObject(value = "{ \"token\": \"eyJhbGciOiJIUzI1NiJ9...\" }")))
@@ -43,6 +45,8 @@ public class AuthController {
         final UserDetails userDetails = userDetailsService.loadUserByUsername(request.username());
         final String jwt = jwtUtils.generateToken(userDetails);
         log.info("Autenticação com a clicksign efetuada com sucesso: {}"  , jwt);
+
+        auditLogService.log(request.username(), "LOGIN", "USER", request.username(), "Login realizado com sucesso", null, null);
 
         return ResponseEntity.ok(LoginResponse.builder().token(jwt).build());
     }

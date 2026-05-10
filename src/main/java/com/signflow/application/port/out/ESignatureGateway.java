@@ -1,10 +1,6 @@
 package com.signflow.application.port.out;
 
-import com.signflow.domain.command.AddDocumentCommand;
-import com.signflow.domain.command.AddRequirementCommand;
-import com.signflow.domain.command.AddSignerCommand;
-import com.signflow.domain.command.CreateEnvelopeCommand;
-import com.signflow.domain.command.UpdateEnvelopeCommand;
+import com.signflow.domain.command.*;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
@@ -30,6 +26,10 @@ public interface ESignatureGateway {
     void cancelEnvelope(String envelopeId);
 
     void remindSigner(String envelopeId, String signerId);
+
+    default String addNotifier(String envelopeId, AddNotifierCommand cmd) {
+        return null;
+    }
 
     // ── Operações de Documento ────────────────────────────────────────────
 

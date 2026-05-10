@@ -16,6 +16,8 @@ public record WebhookAttributesDTO(
     @JsonProperty("created_at")
     String createdAt,
     @JsonProperty("updated_at")
-    String updatedAt
+    String updatedAt,
+    @JsonProperty("auth_method")
+    String authMethod
 ) {}
 

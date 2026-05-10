@@ -6,8 +6,10 @@ import com.signflow.infrastructure.persistence.entity.EnvelopeEventEntity;
 import com.signflow.infrastructure.persistence.repository.EnvelopeEventRepository;
 import com.signflow.infrastructure.persistence.repository.EnvelopeRepository;
 import com.signflow.infrastructure.persistence.repository.SignerRepository;
+import com.signflow.config.KafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,8 +24,8 @@ public class WebhookEventProcessor {
     private final EnvelopeRepository envelopeRepository;
     private final SignerRepository signerRepository;
     private final EnvelopeEventRepository eventRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    @Async("webhookExecutor")
     @Transactional
     public void process(NormalizedWebhookEvent event) {
         log.info("Processando evento {} para o envelope {}", event.getEventType(), event.getEnvelopeExternalId());
@@ -79,8 +81,15 @@ public class WebhookEventProcessor {
                 signerRepository.findByExternalId(event.getSignerExternalId()).ifPresent(signer -> {
                     signer.setStatus("SIGNED");
                     signer.setSignedAt(event.getOccurredAt());
+                    
+                    // Capturar auth_method do metadata se disponível
+                    if (event.getMetadata() != null && event.getMetadata().containsKey("auth_method")) {
+                        signer.setAuthMethod(String.valueOf(event.getMetadata().get("auth_method")));
+                    }
+                    
                     signerRepository.save(signer);
-                    log.debug("Signatário {} marcado como SIGNED", event.getSignerExternalId());
+                    log.debug("Signatário {} marcado como SIGNED (auth: {})", 
+                            event.getSignerExternalId(), signer.getAuthMethod());
                 });
             }
 
@@ -93,6 +102,7 @@ public class WebhookEventProcessor {
             }
 
             saveEvent(envelope, previousStatus, envelope.getStatus(), event);
+            kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, envelope.getExternalId(), event);
         });
     }
 
@@ -113,6 +123,7 @@ public class WebhookEventProcessor {
             envelopeRepository.save(envelope);
 
             saveEvent(envelope, previousStatus, Status.REFUSED, event);
+            kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, envelope.getExternalId(), event);
         });
     }
 
@@ -123,6 +134,7 @@ public class WebhookEventProcessor {
             envelope.setProviderStatus(event.getProviderStatus());
             envelopeRepository.save(envelope);
             saveEvent(envelope, previousStatus, Status.CANCELED, event);
+            kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, envelope.getExternalId(), event);
         });
     }
 
@@ -133,6 +145,7 @@ public class WebhookEventProcessor {
             envelope.setProviderStatus(event.getProviderStatus());
             envelopeRepository.save(envelope);
             saveEvent(envelope, previousStatus, Status.EXPIRED, event);
+            kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, envelope.getExternalId(), event);
         });
     }
 
@@ -145,12 +158,14 @@ public class WebhookEventProcessor {
                 });
             }
             saveEvent(envelope, envelope.getStatus(), envelope.getStatus(), event);
+            kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, envelope.getExternalId(), event);
         });
     }
 
     private void handleAuditOnlyEvent(NormalizedWebhookEvent event) {
         envelopeRepository.findByExternalId(event.getEnvelopeExternalId()).ifPresent(envelope -> {
             saveEvent(envelope, envelope.getStatus(), envelope.getStatus(), event);
+            kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, envelope.getExternalId(), event);
         });
     }
 
@@ -163,6 +178,7 @@ public class WebhookEventProcessor {
             envelopeRepository.save(envelope);
 
             saveEvent(envelope, previousStatus, Status.CLOSED, event);
+            kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, envelope.getExternalId(), event);
         });
     }
 
@@ -175,6 +191,16 @@ public class WebhookEventProcessor {
         eventEntity.setProviderStatus(event.getProviderStatus());
         eventEntity.setSource("WEBHOOK");
         eventEntity.setOccurredAt(event.getOccurredAt() != null ? event.getOccurredAt() : LocalDateTime.now());
+
+        // Serializar metadata para JSON string
+        if (event.getMetadata() != null && !event.getMetadata().isEmpty()) {
+            try {
+                eventEntity.setMetadata(new com.fasterxml.jackson.databind.ObjectMapper()
+                        .writeValueAsString(event.getMetadata()));
+            } catch (Exception e) {
+                log.warn("Falha ao serializar metadata do evento: {}", e.getMessage());
+            }
+        }
 
         if (event.getSignerExternalId() != null) {
             signerRepository.findByExternalId(event.getSignerExternalId()).ifPresent(eventEntity::setSigner);

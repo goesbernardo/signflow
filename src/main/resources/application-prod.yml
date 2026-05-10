@@ -1,14 +1,21 @@
+# ================================================================
+# SignFlow — application-prod.yml
+# Ativado com: SPRING_PROFILES_ACTIVE=prod
+# ================================================================
+
 signflow:
+  encryption:
+    key: ${SIGNFLOW_ENCRYPTION_KEY}
   providers:
     clicksign:
       enabled: true
-      base-url: ${CLICKSIGN_URL}                # obrigatório — sem fallback
-      token: ${CLICKSIGN_API_TOKEN}             # obrigatório — sem fallback
+      base-url: ${CLICKSIGN_URL}
+      token: ${CLICKSIGN_API_TOKEN}
       webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET}
 
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}               # obrigatório — sem fallback
+    url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -20,62 +27,76 @@ spring:
       max-lifetime: 1800000
 
   jpa:
-    open-in-view: false                         # evita queries durante rendering
+    open-in-view: false
     hibernate:
-      ddl-auto: validate                        # nunca criar/alterar schema em produção
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           batch_size: 20
-        order_inserts: true
-        order_updates: true
 
   flyway:
     enabled: true
     baseline-on-migrate: true
-    validate-on-migrate: true                   # falha se checksum divergir
+    validate-on-migrate: true
+    clean-on-validation-error: false
+    clean-disabled: true
 
-  cloud:
-    discovery:
-      enabled: false                            # desabilita Spring Cloud Discovery
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      properties:
+        sasl.mechanism: PLAIN
+        security.protocol: SASL_SSL
+        sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username='${KAFKA_API_KEY}' password='${KAFKA_API_SECRET}';
+    consumer:
+      properties:
+        sasl.mechanism: PLAIN
+        security.protocol: SASL_SSL
+        sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username='${KAFKA_API_KEY}' password='${KAFKA_API_SECRET}';
 
 security:
   jwt:
-    secret: ${JWT_SECRET}                       # obrigatório — sem fallback
+    secret: ${JWT_SECRET}
     expiration: 86400000
 
-# Actuator — restrito em produção
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics            # NÃO expor: env, beans, heapdump
+        include: health,info,metrics,prometheus
   endpoint:
     health:
-      show-details: when-authorized             # detalhes só para ADMIN autenticado
-      show-components: when-authorized
-  info:
-    env:
-      enabled: false                            # não expor variáveis de ambiente no /info
+      show-details: when-authorized
 
-# Logging — JSON estruturado para agregadores de log em produção
+# ── Swagger habilitado em produção com acesso controlado ─────────
+# Acesse: https://signflow-lysg.onrender.com/swagger-ui.html
+# JSON:   https://signflow-lysg.onrender.com/api-docs
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    disable-swagger-default-url: true
+    # Configurações de UX do Swagger UI
+    display-request-duration: true
+    filter: true
+    show-extensions: true
+    try-it-out-enabled: true
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /api-docs
+
+swagger:
+  server-url: ${SWAGGER_SERVER_URL}
+
 logging:
   pattern:
     level: "%5p [requestId=%X{requestId}] [userId=%X{userId}]"
   level:
     root: INFO
     com.signflow: INFO
-    org.springframework.security: WARN         # reduz ruído de auth
-    org.hibernate.SQL: WARN                    # sem SQL no log de produção
-    org.flywaydb: INFO
-
-# Swagger — desabilitar em produção se não quiser expor a documentação
-springdoc:
-  swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}           # desabilitado por padrão em prod
-  api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
-
-swagger:
-  server-url: ${SWAGGER_SERVER_URL:https://signflow-lysg.onrender.com}
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
