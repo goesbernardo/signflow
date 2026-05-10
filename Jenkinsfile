@@ -6,9 +6,12 @@ pipeline {
     }
 
     environment {
-        DOCKER_IMAGE = 'goesbernardo/signflow'
-        DOCKER_TAG   = "${BUILD_NUMBER}"
-        PATH         = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
+        DOCKER_IMAGE       = 'goesbernardo/signflow'
+        DOCKER_TAG         = "${BUILD_NUMBER}"
+        PATH               = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
+        // Força o cliente Docker a usar a versão de API do daemon
+        // Resolve o erro: "client version 1.29 is too old"
+        DOCKER_API_VERSION = '1.40'
     }
 
     stages {
@@ -17,7 +20,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "Branch: ${env.BRANCH_NAME} | Build: #${BUILD_NUMBER}"
+                echo "Build: #${BUILD_NUMBER}"
             }
         }
 
@@ -25,22 +28,11 @@ pipeline {
         stage('Diagnóstico') {
             steps {
                 sh '''
-                    echo "=== Java ==="
-                    java -version
-
-                    echo "=== Maven Wrapper ==="
-                    chmod +x ./mvnw
-                    ./mvnw --version
-
                     echo "=== Docker ==="
-                    which docker || echo "docker nao encontrado no PATH"
-                    docker --version || echo "docker nao disponivel"
-
-                    echo "=== PATH atual ==="
+                    docker --version
+                    docker info --format "Server Version: {{.ServerVersion}}" || true
+                    echo "=== PATH ==="
                     echo $PATH
-
-                    echo "=== Usuario ==="
-                    whoami && id
                 '''
             }
         }
@@ -48,7 +40,10 @@ pipeline {
         // ── Build ─────────────────────────────────────────────────
         stage('Build') {
             steps {
-                sh './mvnw clean package -DskipTests'
+                sh '''
+                    chmod +x ./mvnw
+                    ./mvnw clean package -DskipTests
+                '''
             }
         }
 
@@ -90,10 +85,8 @@ pipeline {
                     sh '''
                         echo "Autenticando no Docker Hub..."
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-
                         docker push $DOCKER_IMAGE:$DOCKER_TAG
                         docker push $DOCKER_IMAGE:latest
-
                         docker logout
                         echo "Push concluido: $DOCKER_IMAGE:$DOCKER_TAG"
                     '''
