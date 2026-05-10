@@ -2,15 +2,9 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE       = 'goesbernardo/signflow'
-        DOCKER_TAG         = "${BUILD_NUMBER}"
-        // Render deploy hook — cadastrar no Jenkins antes de usar:
-        // Manage Jenkins → Credentials → Global → Add → Secret text
-        // ID: render-deploy-hook-url
-        RENDER_DEPLOY_HOOK = credentials('render-deploy-hook-url')
-
-        // Garante que Docker seja encontrado independente da instalação
-        PATH = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
+        DOCKER_IMAGE = 'goesbernardo/signflow'
+        DOCKER_TAG   = "${BUILD_NUMBER}"
+        PATH         = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
     }
 
     stages {
@@ -19,7 +13,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "Branch: ${env.BRANCH_NAME} | Build: #${BUILD_NUMBER}"
+                echo "Build: #${BUILD_NUMBER}"
             }
         }
 
@@ -92,39 +86,41 @@ pipeline {
                     sh '''
                         echo "Autenticando no Docker Hub..."
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-
                         docker push $DOCKER_IMAGE:$DOCKER_TAG
                         docker push $DOCKER_IMAGE:latest
-
-                        echo "Push concluido: $DOCKER_IMAGE:$DOCKER_TAG"
                         docker logout
+                        echo "Push concluido: $DOCKER_IMAGE:$DOCKER_TAG"
                     '''
                 }
             }
         }
 
         // ── Deploy Render (somente branch main) ───────────────────
+        // A credencial render-deploy-hook-url é carregada AQUI
+        // e não no environment global — evita falha no startup
         stage('Deploy Render') {
             when {
                 branch 'main'
             }
             steps {
-                sh '''
-                    echo "Acionando deploy no Render..."
-                    curl -X POST "$RENDER_DEPLOY_HOOK" \
-                         -H "Content-Type: application/json" \
-                         --fail \
-                         --silent \
-                         --show-error
-                    echo "Deploy acionado com sucesso."
-                '''
+                withCredentials([string(
+                    credentialsId: 'render-deploy-hook-url',
+                    variable: 'DEPLOY_HOOK'
+                )]) {
+                    sh '''
+                        echo "Acionando deploy no Render..."
+                        curl -X POST "$DEPLOY_HOOK" \
+                             -H "Content-Type: application/json" \
+                             --fail \
+                             --silent \
+                             --show-error
+                        echo "Deploy acionado com sucesso."
+                    '''
+                }
             }
         }
     }
 
-    // ── Pós-execução ──────────────────────────────────────────────
-    // IMPORTANTE: sh e cleanWs precisam de contexto de node.
-    // Usar node('') garante que sempre haverá contexto disponível.
     post {
         success {
             echo "✅ Pipeline concluído — imagem: $DOCKER_IMAGE:$DOCKER_TAG"
