@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        dockerTool 'docker'
+    }
+
     environment {
         DOCKER_IMAGE = 'goesbernardo/signflow'
         DOCKER_TAG   = "${BUILD_NUMBER}"
@@ -13,7 +17,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "Build: #${BUILD_NUMBER}"
+                echo "Branch: ${env.BRANCH_NAME} | Build: #${BUILD_NUMBER}"
             }
         }
 
@@ -35,7 +39,7 @@ pipeline {
                     echo "=== PATH atual ==="
                     echo $PATH
 
-                    echo "=== Usuario Jenkins ==="
+                    echo "=== Usuario ==="
                     whoami && id
                 '''
             }
@@ -86,8 +90,10 @@ pipeline {
                     sh '''
                         echo "Autenticando no Docker Hub..."
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+
                         docker push $DOCKER_IMAGE:$DOCKER_TAG
                         docker push $DOCKER_IMAGE:latest
+
                         docker logout
                         echo "Push concluido: $DOCKER_IMAGE:$DOCKER_TAG"
                     '''
@@ -96,8 +102,6 @@ pipeline {
         }
 
         // ── Deploy Render (somente branch main) ───────────────────
-        // A credencial render-deploy-hook-url é carregada AQUI
-        // e não no environment global — evita falha no startup
         stage('Deploy Render') {
             when {
                 branch 'main'
