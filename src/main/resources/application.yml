@@ -13,7 +13,7 @@ signflow:
 
 server:
   forward-headers-strategy: framework
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
 
 springdoc:
   api-docs:
