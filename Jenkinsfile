@@ -20,26 +20,27 @@ pipeline {
 
         stage('Build') {
             steps {
-                bat 'mvn clean package -DskipTests'
+                sh 'chmod +x mvnw'
+                sh './mvnw clean package -DskipTests'
             }
         }
 
         stage('Tests') {
             steps {
-                bat 'mvn test'
+                sh './mvnw test'
             }
         }
 
         stage('Docker Build') {
             steps {
-                bat 'docker build -t signflow-api .'
+                sh 'docker build -t signflow-api .'
             }
         }
 
         stage('Deploy Render') {
             steps {
-                bat """
-                    curl -X POST %RENDER_DEPLOY_HOOK%
+                sh """
+                    curl -X POST $RENDER_DEPLOY_HOOK
                 """
             }
         }
