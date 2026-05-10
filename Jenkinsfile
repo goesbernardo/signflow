@@ -4,10 +4,12 @@ pipeline {
     environment {
         DOCKER_IMAGE       = 'goesbernardo/signflow'
         DOCKER_TAG         = "${BUILD_NUMBER}"
+        // Render deploy hook — cadastrar no Jenkins antes de usar:
+        // Manage Jenkins → Credentials → Global → Add → Secret text
+        // ID: render-deploy-hook-url
         RENDER_DEPLOY_HOOK = credentials('render-deploy-hook-url')
 
-        // Opção 3 — garante que o Docker seja encontrado no PATH
-        // independente de como o Jenkins foi instalado
+        // Garante que Docker seja encontrado independente da instalação
         PATH = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
     }
 
@@ -21,7 +23,7 @@ pipeline {
             }
         }
 
-        // ── Diagnóstico (remover após confirmar que Docker funciona) ──
+        // ── Diagnóstico ───────────────────────────────────────────
         stage('Diagnóstico') {
             steps {
                 sh '''
@@ -32,7 +34,7 @@ pipeline {
                     chmod +x ./mvnw
                     ./mvnw --version
 
-                    echo "=== Docker PATH ==="
+                    echo "=== Docker ==="
                     which docker || echo "docker nao encontrado no PATH"
                     docker --version || echo "docker nao disponivel"
 
@@ -40,8 +42,7 @@ pipeline {
                     echo $PATH
 
                     echo "=== Usuario Jenkins ==="
-                    whoami
-                    id
+                    whoami && id
                 '''
             }
         }
@@ -92,11 +93,11 @@ pipeline {
                         echo "Autenticando no Docker Hub..."
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
 
-                        echo "Enviando imagens..."
                         docker push $DOCKER_IMAGE:$DOCKER_TAG
                         docker push $DOCKER_IMAGE:latest
 
                         echo "Push concluido: $DOCKER_IMAGE:$DOCKER_TAG"
+                        docker logout
                     '''
                 }
             }
@@ -122,17 +123,19 @@ pipeline {
     }
 
     // ── Pós-execução ──────────────────────────────────────────────
+    // IMPORTANTE: sh e cleanWs precisam de contexto de node.
+    // Usar node('') garante que sempre haverá contexto disponível.
     post {
         success {
             echo "✅ Pipeline concluído — imagem: $DOCKER_IMAGE:$DOCKER_TAG"
         }
         failure {
             echo "❌ Pipeline falhou no build #${BUILD_NUMBER}"
-            echo "Verifique o stage Diagnostico para confirmar se o Docker está disponível."
         }
         always {
-            sh 'docker logout || true'
-            cleanWs()
+            node('') {
+                cleanWs()
+            }
         }
     }
 }
