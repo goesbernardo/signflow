@@ -16,5 +16,6 @@ public record CreateFullEnvelopeCommand(
         List<AddSignerCommand> signers,
         @Valid
         List<FullRequirementCommand> requirements, // ← sem documentId/signerId
-        Boolean autoActivate
+        Boolean autoActivate,
+        String callbackUrl
 ) {}

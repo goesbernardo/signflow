@@ -1,6 +1,7 @@
 package com.signflow.application.service.impl;
 
 import com.signflow.api.dto.EnvelopeTimelineResponse;
+import com.signflow.api.dto.OutboundWebhookDeliveryResponse;
 import com.signflow.application.port.in.SignatureService;
 import com.signflow.domain.exception.DomainErrorCode;
 import com.signflow.domain.exception.DomainException;
@@ -15,6 +16,9 @@ import com.signflow.enums.*;
 import com.signflow.infrastructure.gateway.SignatureGatewayRegistry;
 import com.signflow.infrastructure.persistence.entity.*;
 import com.signflow.infrastructure.persistence.repository.*;
+import com.signflow.infrastructure.persistence.repository.AuditLogRepository;
+import com.signflow.infrastructure.persistence.entity.AuditLogEntity;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,6 +27,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.signflow.application.webhook.NormalizedWebhookEvent;
+import com.signflow.config.KafkaConfig;
+import org.springframework.kafka.core.KafkaTemplate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -40,39 +47,49 @@ public class SignatureServiceImpl implements SignatureService {
     private final DocumentRepository documentRepository;
     private final RequirementRepository requirementRepository;
     private final EnvelopeEventRepository eventRepository;
+    private final NotifierRepository notifierRepository;
+    private final OutboundWebhookDeliveryRepository outboundWebhookDeliveryRepository;
+    private final com.signflow.application.service.SmartRoutingService smartRoutingService;
+    private final UserRepository userRepository;
+    private final AuditLogRepository auditLogRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final HttpServletRequest request;
 
     // ── createEnvelope ────────────────────────────────────────────────────
 
     @Override
     @Transactional
     public Envelope createEnvelope(CreateEnvelopeCommand cmd, ProviderSignature provider) {
-        log.info("Iniciando criação de envelope para o provedor {}", provider);
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        audit("CREATE_ENVELOPE", "ENVELOPE", null, "Criação de envelope: " + cmd.name());
+        ProviderSignature resolvedProvider = provider != null ? provider : smartRoutingService.route(userId, cmd);
+        log.info("Iniciando criação de envelope para o provedor {}", resolvedProvider);
 
         EnvelopeEntity entity = new EnvelopeEntity();
         entity.setStatus(Status.PROCESSING);
-        entity.setProvider(provider);
+        entity.setProvider(resolvedProvider);
         entity.setName(cmd.name());
+        entity.setCallbackUrl(cmd.callbackUrl());
         entity.setCreated(LocalDateTime.now());
 
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         entity.setUserId(userId);
 
         entity = repository.save(entity);
-        saveEvent(entity, null, Status.PROCESSING, "API");
+        saveEvent(entity, null, Status.PROCESSING);
 
         try {
-            ESignatureGateway gateway = registry.get(provider);
+            ESignatureGateway gateway = registry.get(resolvedProvider);
             Envelope envelope = gateway.createEnvelope(cmd);
 
-            updateStatus(entity, Status.DRAFT, "API");
+            updateStatus(entity, Status.DRAFT);
             entity.setExternalId(envelope.getExternalId());
             repository.save(entity);
 
             envelope.setId(entity.getId().toString());
             return envelope;
         } catch (Exception e) {
-            log.error("Erro ao criar envelope no provedor {}", provider, e);
-            updateStatus(entity, Status.FAILED, "API");
+            log.error("Erro ao criar envelope no provedor {}", resolvedProvider, e);
+            updateStatus(entity, Status.FAILED);
             throw e;
         }
     }
@@ -82,8 +99,9 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public Envelope updateEnvelope(String externalId, UpdateEnvelopeCommand cmd, ProviderSignature provider) {
-        log.info("Atualizando envelope {} no provedor {}", externalId, provider);
-        Envelope envelope = registry.get(provider).updateEnvelope(externalId, cmd);
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        log.info("Atualizando envelope {} no provedor {}", externalId, resolvedProvider);
+        Envelope envelope = registry.get(resolvedProvider).updateEnvelope(externalId, cmd);
 
         repository.findByExternalId(externalId).ifPresent(entity -> {
             entity.setName(cmd.name());
@@ -97,14 +115,18 @@ public class SignatureServiceImpl implements SignatureService {
 
     @Override
     public Envelope getEnvelope(String externalId, ProviderSignature provider, boolean includeSigners) {
+        String currentUserId = SecurityContextHolder.getContext().getAuthentication().getName();
         return repository.findByExternalId(externalId)
                 .map(entity -> {
-                    log.info("Envelope {} encontrado no banco local.", externalId);
+                    audit("GET_ENVELOPE", "ENVELOPE", externalId, "Acesso local ao envelope");
+                    log.info("[AUDIT] Usuário {} acessou envelope local {}.", currentUserId, externalId);
                     Envelope envelope = Envelope.builder()
                             .id(entity.getId().toString())
                             .externalId(entity.getExternalId())
                             .name(entity.getName())
                             .status(entity.getStatus())
+                            .provider(String.valueOf(entity.getProvider()))
+                            .callbackUrl(entity.getCallbackUrl())
                             .created(entity.getCreated() != null ? entity.getCreated().atOffset(ZoneOffset.UTC) : null)
                             .build();
 
@@ -117,8 +139,10 @@ public class SignatureServiceImpl implements SignatureService {
                     return envelope;
                 })
                 .orElseGet(() -> {
-                    log.info("Envelope {} não encontrado localmente. Consultando {}.", externalId, provider);
-                    return registry.get(provider).getEnvelope(externalId);
+                    ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+                    audit("GET_ENVELOPE_REMOTE", "ENVELOPE", externalId, "Acesso remoto ao envelope no provedor " + resolvedProvider);
+                    log.info("[AUDIT] Usuário {} consultou envelope remoto {} no provedor {}.", currentUserId, externalId, resolvedProvider);
+                    return registry.get(resolvedProvider).getEnvelope(externalId);
                 });
     }
 
@@ -132,17 +156,17 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public void activateEnvelope(String externalId, ProviderSignature provider) {
-        log.info("Ativando envelope {} no provedor {}", externalId, provider);
-        
-        EnvelopeEntity entity = repository.findByExternalId(externalId)
-                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        log.info("Ativando envelope {} no provedor {}", externalId, resolvedProvider);
+
+        EnvelopeEntity entity = repository.findByExternalId(externalId).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
 
         if (entity.getStatus() != Status.DRAFT) {
             throw new DomainException(DomainErrorCode.INVALID_ENVELOPE_STATUS, "Somente envelopes em rascunho (DRAFT) podem ser ativados. Status atual: " + entity.getStatus());
         }
 
-        registry.get(provider).activateEnvelope(externalId);
-        updateStatus(entity, Status.ACTIVE, "API");
+        registry.get(resolvedProvider).activateEnvelope(externalId);
+        updateStatus(entity, Status.ACTIVE);
     }
 
     // ── cancelEnvelope ────────────────────────────────────────────────────
@@ -150,17 +174,23 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public void cancelEnvelope(String externalId, ProviderSignature provider) {
-        log.info("Cancelando envelope {} no provedor {}", externalId, provider);
-        
-        EnvelopeEntity entity = repository.findByExternalId(externalId)
-                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        log.info("Cancelando envelope {} no provedor {}", externalId, resolvedProvider);
+
+        EnvelopeEntity entity = repository.findByExternalId(externalId).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
 
         if (entity.getStatus() != Status.ACTIVE && entity.getStatus() != Status.DRAFT) {
             throw new DomainException(DomainErrorCode.INVALID_ENVELOPE_STATUS, "Somente envelopes ACTIVE ou DRAFT podem ser cancelados. Status atual: " + entity.getStatus());
         }
 
-        registry.get(provider).cancelEnvelope(externalId);
-        updateStatus(entity, Status.CANCELED, "API");
+        registry.get(resolvedProvider).cancelEnvelope(externalId);
+        updateStatus(entity, Status.CANCELED);
+    }
+
+    private ProviderSignature resolveProviderForEnvelope(String externalId, ProviderSignature provider) {
+        if (provider != null) return provider;
+        return repository.findByExternalId(externalId)
+                .map(EnvelopeEntity::getProvider).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Provider não informado e envelope não encontrado localmente para o ID: " + externalId));
     }
 
     // ── listEnvelopes ─────────────────────────────────────────────────────
@@ -168,7 +198,8 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     public Page<Envelope> listEnvelopes(Status status, Pageable pageable, boolean includeSigners) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        log.info("Listando envelopes para o usuário {} com status {} (includeSigners={})", userId, status, includeSigners);
+        audit("LIST_ENVELOPES", "ENVELOPE", null, "Listagem de envelopes com status " + status);
+        log.info("[AUDIT] Usuário {} listou seus envelopes com status {} (includeSigners={})", userId, status, includeSigners);
 
         Page<EnvelopeEntity> entities = status != null
                 ? repository.findAllByUserIdAndStatus(userId, status, pageable)
@@ -209,6 +240,9 @@ public class SignatureServiceImpl implements SignatureService {
                         .previousStatus(event.getPreviousStatus())
                         .newStatus(event.getNewStatus())
                         .source(event.getSource())
+                        .providerEvent(event.getProviderEvent())
+                        .providerStatus(event.getProviderStatus())
+                        .signerExternalId(event.getSigner() != null ? event.getSigner().getExternalId() : null)
                         .occurredAt(event.getOccurredAt())
                         .build())
                 .collect(Collectors.toList());
@@ -232,10 +266,15 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public Envelope createFullEnvelope(CreateFullEnvelopeCommand cmd, ProviderSignature provider) {
-        log.info("Iniciando criação de envelope completo: {}", cmd.name());
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        ProviderSignature resolvedProvider = provider != null ? provider : smartRoutingService.route(userId, cmd);
+        log.info("Iniciando criação de envelope completo: {} no provedor {}", cmd.name(), resolvedProvider);
 
         // 1. Criar Envelope
-        Envelope envelope = createEnvelope(CreateEnvelopeCommand.builder().name(cmd.name()).build(), provider);
+        Envelope envelope = createEnvelope(CreateEnvelopeCommand.builder()
+                .name(cmd.name())
+                .callbackUrl(cmd.callbackUrl())
+                .build(), resolvedProvider);
         String envelopeId = envelope.getExternalId();
         log.info("Envelope criado com ID: {}", envelopeId);
 
@@ -243,7 +282,7 @@ public class SignatureServiceImpl implements SignatureService {
         List<String> documentIds = new ArrayList<>();
         if (cmd.documents() != null) {
             for (AddDocumentCommand docCmd : cmd.documents()) {
-                Document doc = addDocument(envelopeId, docCmd, provider);
+                Document doc = addDocument(envelopeId, docCmd, resolvedProvider);
                 documentIds.add(doc.getExternalId());
             }
         }
@@ -252,21 +291,16 @@ public class SignatureServiceImpl implements SignatureService {
         // 3. Adicionar Signatários
         List<String> signerIds = new ArrayList<>();
         if (cmd.signers() != null) {
-            List<Signer> signers = addSigners(envelopeId, cmd.signers(), provider);
+            List<Signer> signers = addSigners(envelopeId, cmd.signers(), resolvedProvider);
             signers.forEach(s -> signerIds.add(s.getExternalId()));
         }
         log.info("Signatários adicionados: {}", signerIds);
 
         // 4. Adicionar Requisitos
-        // FullRequirementCommand agora usa SignerRole e SignatureAuthMethod diretamente.
-        // Sem conversão intermediária — os valores chegam já no formato do domínio neutro.
         if (cmd.requirements() != null && !documentIds.isEmpty() && !signerIds.isEmpty()) {
             for (FullRequirementCommand reqCmd : cmd.requirements()) {
 
-                // Default: SIGN se role não informado
                 SignerRole role = reqCmd.role() != null ? reqCmd.role() : SignerRole.SIGN;
-
-                // Default: EMAIL se auth não informado
                 SignatureAuthMethod auth = reqCmd.auth() != null ? reqCmd.auth() : SignatureAuthMethod.EMAIL;
 
                 for (String signerId : signerIds) {
@@ -277,14 +311,14 @@ public class SignatureServiceImpl implements SignatureService {
                                 .signerId(signerId)
                                 .documentId(documentId)
                                 .role(role)
-                                .build(), provider);
+                                .build(), resolvedProvider);
 
                         // 4b. Requisito de Autenticação — auth
                         addRequirement(envelopeId, AddRequirementCommand.builder()
                                 .signerId(signerId)
                                 .documentId(documentId)
                                 .auth(auth)
-                                .build(), provider);
+                                .build(), resolvedProvider);
                     }
                 }
             }
@@ -293,11 +327,11 @@ public class SignatureServiceImpl implements SignatureService {
 
         // 5. Ativação automática
         if (Boolean.TRUE.equals(cmd.autoActivate())) {
-            activateEnvelope(envelopeId, provider);
+            activateEnvelope(envelopeId, resolvedProvider);
             log.info("Envelope {} ativado automaticamente", envelopeId);
         }
 
-        return getEnvelope(envelopeId, provider);
+        return getEnvelope(envelopeId, resolvedProvider);
     }
 
     // ── Documento ─────────────────────────────────────────────────────────
@@ -305,8 +339,9 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public Document addDocument(String externalId, AddDocumentCommand cmd, ProviderSignature provider) {
-        log.info("Adicionando documento ao envelope {} no provedor {}", externalId, provider);
-        Document document = registry.get(provider).addDocument(externalId, cmd);
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        log.info("Adicionando documento ao envelope {} no provedor {}", externalId, resolvedProvider);
+        Document document = registry.get(resolvedProvider).addDocument(externalId, cmd);
 
         repository.findByExternalId(externalId).ifPresent(envelope -> {
             DocumentEntity entity = new DocumentEntity();
@@ -344,6 +379,7 @@ public class SignatureServiceImpl implements SignatureService {
 
     @Override
     public Document updateDocument(String documentId, UpdateDocumentCommand cmd, ProviderSignature provider) {
+        // Operação ainda não suportada no gateway (Provider)
         DocumentEntity entity = documentRepository.findByExternalId(documentId).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Documento não encontrado: " + documentId));
 
         if (cmd.filename() != null) entity.setFilename(cmd.filename());
@@ -358,7 +394,14 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public void deleteDocument(String documentId, ProviderSignature provider) {
+        // Operação ainda não suportada no gateway (Provider)
         documentRepository.findByExternalId(documentId).ifPresentOrElse(documentRepository::delete, () -> log.warn("Documento {} não encontrado para remoção.", documentId));
+    }
+
+    private ProviderSignature resolveProviderForDocument(String documentId, ProviderSignature provider) {
+        if (provider != null) return provider;
+        return documentRepository.findByExternalId(documentId)
+                .map(doc -> doc.getEnvelope().getProvider()).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Provider não informado e documento não encontrado localmente: " + documentId));
     }
 
     // ── Signatário ────────────────────────────────────────────────────────
@@ -366,8 +409,9 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public List<Signer> addSigners(String externalId, List<AddSignerCommand> commands, ProviderSignature provider) {
-        log.info("Adicionando {} signatários ao envelope {} no provedor {}", commands.size(), externalId, provider);
-        ESignatureGateway gateway = registry.get(provider);
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        log.info("Adicionando {} signatários ao envelope {} no provedor {}", commands.size(), externalId, resolvedProvider);
+        ESignatureGateway gateway = registry.get(resolvedProvider);
 
         List<Signer> signers = new ArrayList<>();
         for (AddSignerCommand cmd : commands) {
@@ -395,11 +439,15 @@ public class SignatureServiceImpl implements SignatureService {
 
     @Override
     public List<Signer> getSigners(String externalId, ProviderSignature provider) {
+        log.info("Listando signatários do envelope {} no banco local", externalId);
         return signerRepository.findAllByEnvelopeExternalId(externalId)
                 .stream()
                 .map(entity -> Signer.builder()
                         .externalId(entity.getExternalId())
                         .name(entity.getName())
+                        .email(entity.getEmail())
+                        .status(entity.getStatus())
+                        .signedAt(entity.getSignedAt() != null ? entity.getSignedAt().atOffset(ZoneOffset.UTC) : null)
                         .created(entity.getCreated() != null ? entity.getCreated().atOffset(ZoneOffset.UTC) : null)
                         .build())
                 .collect(Collectors.toList());
@@ -408,14 +456,21 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     public Signer getSigner(String externalId, String signerId, ProviderSignature provider) {
         return signerRepository.findByExternalId(signerId)
-                .map(this::mapToSignerModel)
-                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Signatário não encontrado: " + signerId));
+                .map(this::mapToSignerModel).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Signatário não encontrado localmente: " + signerId));
     }
 
     @Override
     @Transactional
     public void deleteSigner(String externalId, String signerId, ProviderSignature provider) {
+        // Operação ainda não suportada no gateway (Provider)
         signerRepository.findByExternalId(signerId).ifPresentOrElse(signerRepository::delete, () -> log.warn("Signatário {} não encontrado para remoção.", signerId));
+    }
+
+    private ProviderSignature resolveProviderForSigner(String signerId, ProviderSignature provider) {
+        if (provider != null) return provider;
+        return signerRepository.findByExternalId(signerId)
+                .map(s -> s.getEnvelope().getProvider())
+                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Provider não informado e signatário não encontrado localmente: " + signerId));
     }
 
     // ── Requisito ─────────────────────────────────────────────────────────
@@ -423,8 +478,9 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public void addRequirement(String externalId, AddRequirementCommand cmd, ProviderSignature provider) {
-        log.info("Adicionando requisito ao envelope {} no provedor {}", externalId, provider);
-        Requirement requirement = registry.get(provider).addRequirement(externalId, cmd);
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        log.info("Adicionando requisito ao envelope {} no provedor {}", externalId, resolvedProvider);
+        Requirement requirement = registry.get(resolvedProvider).addRequirement(externalId, cmd);
 
         if (requirement == null) {
             log.warn("Requisito retornou nulo do provider. Ignorando persistência local.");
@@ -452,12 +508,12 @@ public class SignatureServiceImpl implements SignatureService {
 
     @Override
     public List<Requirement> getRequirements(String externalId, ProviderSignature provider) {
+        log.info("Listando requisitos do envelope {} no banco local", externalId);
         return requirementRepository.findAllByEnvelopeExternalId(externalId)
                 .stream()
                 .map(entity -> Requirement.builder()
                         .externalId(entity.getExternalId())
-                        .created(entity.getCreated() != null
-                                ? entity.getCreated().atOffset(ZoneOffset.UTC) : null)
+                        .created(entity.getCreated() != null ? entity.getCreated().atOffset(ZoneOffset.UTC) : null)
                         .build())
                 .collect(Collectors.toList());
     }
@@ -467,56 +523,159 @@ public class SignatureServiceImpl implements SignatureService {
         return requirementRepository.findByExternalId(requirementId)
                 .map(entity -> Requirement.builder()
                         .externalId(entity.getExternalId())
-                        .created(entity.getCreated() != null
-                                ? entity.getCreated().atOffset(ZoneOffset.UTC) : null)
+                        .created(entity.getCreated() != null ? entity.getCreated().atOffset(ZoneOffset.UTC) : null)
                         .build())
-                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Requisito não encontrado: " + requirementId));
+                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Requisito não encontrado localmente: " + requirementId));
     }
 
     @Override
     @Transactional
     public void deleteRequirement(String requirementId, ProviderSignature provider) {
+        // Operação ainda não suportada no gateway (Provider)
         requirementRepository.findByExternalId(requirementId).ifPresentOrElse(requirementRepository::delete, () -> log.warn("Requisito {} não encontrado para remoção.", requirementId));
+    }
+
+    private ProviderSignature resolveProviderForRequirement(String requirementId, ProviderSignature provider) {
+        if (provider != null) return provider;
+        return requirementRepository.findByExternalId(requirementId)
+                .map(r -> r.getEnvelope().getProvider())
+                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Provider não informado e requisito não encontrado localmente: " + requirementId));
     }
 
     @Override
     @Transactional
     public void remindSigner(String externalId, String signerId, ProviderSignature provider) {
-        var signer = signerRepository.findByExternalId(signerId)
-                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Signatário não encontrado"));
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        var signer = signerRepository.findByExternalId(signerId).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Signatário não encontrado"));
 
-        if (signer.getLastRemindedAt() != null &&
-                signer.getLastRemindedAt().isAfter(LocalDateTime.now().minusHours(1))) {
+        if (signer.getLastRemindedAt() != null && signer.getLastRemindedAt().isAfter(LocalDateTime.now().minusHours(1))) {
             throw new DomainException(DomainErrorCode.REMINDER_RATE_LIMIT, "Um lembrete já foi enviado na última hora para este signatário");
         }
 
-        registry.get(provider).remindSigner(externalId, signerId);
+        registry.get(resolvedProvider).remindSigner(externalId, signerId);
 
         signer.setLastRemindedAt(LocalDateTime.now());
         signerRepository.save(signer);
 
-        log.info("Lembrete enviado para o signatário {} do envelope {}", signerId, externalId);
+        log.info("Lembrete enviado para o signatário {} do envelope {} via {}", signerId, externalId, resolvedProvider);
+    }
+
+    @Override
+    @Transactional
+    public void addNotifier(String externalId, AddNotifierCommand cmd, ProviderSignature provider) {
+        ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
+        log.info("Adicionando observador {} ao envelope {} via {}", cmd.email(), externalId, resolvedProvider);
+
+        EnvelopeEntity envelope = repository.findByExternalId(externalId).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado"));
+
+        String notifierExternalId = registry.get(resolvedProvider).addNotifier(externalId, cmd);
+
+        NotifierEntity notifier = NotifierEntity.builder()
+                .envelope(envelope)
+                .email(cmd.email())
+                .name(cmd.name())
+                .externalId(notifierExternalId)
+                .build();
+
+        notifierRepository.save(notifier);
+    }
+
+    @Override
+    public List<OutboundWebhookDeliveryResponse> getWebhookDeliveries(String externalId) {
+        log.info("Buscando histórico de entregas de webhook para envelope {}", externalId);
+        return outboundWebhookDeliveryRepository.findByEnvelopeExternalIdOrderByCreatedAtDesc(externalId)
+                .stream()
+                .map(entity -> OutboundWebhookDeliveryResponse.builder()
+                        .id(entity.getId())
+                        .url(entity.getUrl())
+                        .payload(entity.getPayload())
+                        .status(entity.getStatus() != null ? entity.getStatus().name() : null)
+                        .attempts(entity.getAttempts())
+                        .httpStatusCode(entity.getHttpStatusCode())
+                        .lastAttemptAt(entity.getLastAttemptAt())
+                        .createdAt(entity.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteMe() {
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        log.info("[LGPD] Processando solicitação de exclusão (soft delete) para o usuário: {}", userId);
+
+        userRepository.findByUsername(userId).ifPresent(user -> {
+            user.setDeleted_at(LocalDateTime.now());
+            userRepository.save(user);
+            audit("DELETE_ME", "USER", userId, "Usuário marcou sua conta como deletada (Direito ao Esquecimento)");
+            log.info("[AUDIT] Usuário {} marcou sua conta como deletada (Direito ao Esquecimento).", userId);
+        });
+    }
+
+    private void audit(String action, String resourceType, String resourceId, String details) {
+        try {
+            String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+            String ip = request.getRemoteAddr();
+            String ua = request.getHeader("User-Agent");
+
+            AuditLogEntity logEntry = AuditLogEntity.builder()
+                    .userId(userId)
+                    .action(action)
+                    .resourceType(resourceType)
+                    .resourceId(resourceId)
+                    .details(details)
+                    .ipAddress(ip)
+                    .userAgent(ua)
+                    .build();
+
+            auditLogRepository.save(logEntry);
+        } catch (Exception e) {
+            log.warn("Falha ao registrar log de auditoria: {}", e.getMessage());
+        }
     }
 
     // ── Helpers privados ──────────────────────────────────────────────────
 
-    private void updateStatus(EnvelopeEntity entity, Status newStatus, String source) {
+    private void updateStatus(EnvelopeEntity entity, Status newStatus) {
         Status previous = entity.getStatus();
         if (previous != newStatus) {
             entity.setStatus(newStatus);
             repository.save(entity);
-            saveEvent(entity, previous, newStatus, source);
+            saveEvent(entity, previous, newStatus);
         }
     }
 
-    private void saveEvent(EnvelopeEntity entity, Status previous, Status next, String source) {
+    private void saveEvent(EnvelopeEntity entity, Status previous, Status next) {
         EnvelopeEventEntity event = new EnvelopeEventEntity();
         event.setEnvelope(entity);
         event.setPreviousStatus(previous);
         event.setNewStatus(next);
-        event.setSource(source);
+        event.setSource("API");
         event.setOccurredAt(LocalDateTime.now());
         eventRepository.save(event);
+
+        // Notificar via Kafka sobre a mudança de status (Outbound Webhook)
+        NormalizedWebhookEvent normalizedEvent = NormalizedWebhookEvent.builder()
+                .envelopeExternalId(entity.getExternalId())
+                .provider(entity.getProvider())
+                .eventType(mapStatusToEventType(next))
+                .occurredAt(event.getOccurredAt())
+                .providerStatus(next.name())
+                .build();
+
+        kafkaTemplate.send(KafkaConfig.ENVELOPE_EVENTS_TOPIC, entity.getExternalId(), normalizedEvent);
+    }
+
+    private com.signflow.enums.WebhookEventType mapStatusToEventType(Status status) {
+        return switch (status) {
+            case DRAFT -> com.signflow.enums.WebhookEventType.DOCUMENT_CREATED;
+            case PENDING, ACTIVE -> com.signflow.enums.WebhookEventType.DOCUMENT_SENT;
+            case CLOSED -> com.signflow.enums.WebhookEventType.DOCUMENT_COMPLETED;
+            case CANCELED, DELETED -> com.signflow.enums.WebhookEventType.DOCUMENT_CANCELED;
+            case EXPIRED -> com.signflow.enums.WebhookEventType.DOCUMENT_EXPIRED;
+            case REFUSED -> com.signflow.enums.WebhookEventType.DOCUMENT_REJECTED;
+            default -> com.signflow.enums.WebhookEventType.UNKNOWN;
+        };
     }
 
     private Signer mapToSignerModel(SignerEntity entity) {

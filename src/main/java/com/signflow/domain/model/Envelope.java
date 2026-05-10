@@ -15,4 +15,6 @@ public class Envelope {
     private Status status;
     private OffsetDateTime created;
     private List<Signer> signers;
+    private String provider;
+    private String callbackUrl;
 }

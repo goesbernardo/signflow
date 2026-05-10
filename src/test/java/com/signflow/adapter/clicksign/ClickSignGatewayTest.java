@@ -4,16 +4,14 @@ import com.signflow.infrastructure.provider.clicksign.ClickSignGateway;
 import com.signflow.infrastructure.provider.clicksign.client.ClickSignIntegrationFeignClient;
 import com.signflow.infrastructure.provider.clicksign.dto.*;
 import com.signflow.infrastructure.provider.clicksign.mapper.ClickSignMapper;
-import com.signflow.domain.command.AddDocumentCommand;
-import com.signflow.domain.command.AddRequirementCommand;
-import com.signflow.domain.command.AddSignerCommand;
-import com.signflow.domain.command.CreateEnvelopeCommand;
+import com.signflow.domain.command.*;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.*;
 import com.signflow.infrastructure.exception.IntegrationException;
+import com.signflow.infrastructure.provider.clicksign.clicksign_exception.ClickSignIntegrationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,6 +28,8 @@ import java.time.OffsetDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -48,6 +48,28 @@ class ClickSignGatewayTest {
     private ClickSignGateway gateway;
 
     // ── Fixtures ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("deve executar fallback de cancelamento quando houver erro")
+    void deveExecutarFallbackDeCancelamento() {
+        doThrow(new RuntimeException("API Error")).when(clickSignClient).activateEnvelope(any(), any());
+
+        assertThatThrownBy(() -> gateway.cancelEnvelope("env-id"))
+                .isInstanceOf(RuntimeException.class);
+
+        verify(clickSignClient).activateEnvelope(eq("env-id"), any());
+    }
+
+    @Test
+    @DisplayName("deve executar fallback de lembrete quando houver erro")
+    void deveExecutarFallbackDeLembrete() {
+        doThrow(new RuntimeException("API Error")).when(clickSignClient).remindSigner(any(), any());
+
+        assertThatThrownBy(() -> gateway.remindSigner("env-id", "signer-id"))
+                .isInstanceOf(IntegrationException.class);
+
+        verify(clickSignClient).remindSigner(eq("env-id"), eq("signer-id"));
+    }
 
     private SignatureClickSignResponseDTO mockResponse() {
         return SignatureClickSignResponseDTO.builder()
@@ -148,8 +170,103 @@ class ClickSignGatewayTest {
                     .isSameAs(original);
         }
     }
-    // ══════════════════════════════════════════════════════════════════════
-    // getEnvelope
+// ══════════════════════════════════════════════════════════════════════
+// cancelEnvelope
+// ══════════════════════════════════════════════════════════════════════
+
+@Nested
+@DisplayName("cancelEnvelope")
+class CancelEnvelope {
+
+    @Test
+    @DisplayName("deve cancelar envelope com sucesso via activateEnvelope com status canceled")
+    void deveCancelarEnvelopeComSucesso() {
+        gateway.cancelEnvelope("env-id");
+        verify(clickSignClient).activateEnvelope(eq("env-id"), any());
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// remindSigner
+// ══════════════════════════════════════════════════════════════════════
+
+@Nested
+@DisplayName("remindSigner")
+class RemindSigner {
+    @Test
+    void deveEnviarLembreteComSucesso() {
+        gateway.remindSigner("env-1", "signer-1");
+        verify(clickSignClient).remindSigner("env-1", "signer-1");
+    }
+}
+@Nested
+class AddNotifier {
+    @Test
+    void deveAdicionarNotifierComSucesso() {
+        String envelopeId = "env-123";
+        AddNotifierCommand cmd = AddNotifierCommand.builder()
+                .email("test@example.com")
+                .name("Test Notifier")
+                .build();
+        var response = mockResponse();
+        when(clickSignClient.createNotifier(eq(envelopeId), any())).thenReturn(response);
+        String result = gateway.addNotifier(envelopeId, cmd);
+        assertEquals("uuid-externo-123", result);
+        verify(clickSignClient).createNotifier(eq(envelopeId), argThat(req ->
+            req.data().attributes().email().equals("test@example.com") &&
+            req.data().attributes().name().equals("Test Notifier") &&
+            req.data().type().equals("notifiers")
+        ));
+    }
+    @Test
+    void deveExecutarFallbackDeAddNotifier() {
+        String envelopeId = "env-123";
+        AddNotifierCommand cmd = AddNotifierCommand.builder().email("test@example.com").build();
+            
+        when(clickSignClient.createNotifier(anyString(), any())).thenThrow(new RuntimeException("API Error"));
+        assertThrows(RuntimeException.class, () -> gateway.addNotifier(envelopeId, cmd));
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Mapeamento de Canais
+// ══════════════════════════════════════════════════════════════════════
+
+@Nested
+@DisplayName("Mapeamento de Canais")
+class ChannelMapping {
+
+    @ParameterizedTest
+    @EnumSource(value = NotificationChannel.class, names = {"SMS", "EMAIL"})
+    @DisplayName("deve mapear SMS e EMAIL para 'email' no mapDocumentSigned")
+    void deveMapearSmsEEmailParaEmailNoDocumentSigned(NotificationChannel channel) {
+        var result = gateway.mapDocumentSigned(channel);
+        assertThat(result).isEqualTo("email");
+    }
+
+    @Test
+    @DisplayName("deve mapear WHATSAPP para 'whatsapp' no mapDocumentSigned")
+    void deveMapearWhatsappParaWhatsappNoDocumentSigned() {
+        var result = gateway.mapDocumentSigned(NotificationChannel.WHATSAPP);
+        assertThat(result).isEqualTo("whatsapp");
+    }
+
+    @ParameterizedTest
+    @EnumSource(NotificationChannel.class)
+    @DisplayName("deve mapear canais corretamente no mapSignatureRequest")
+    void deveMapearCanaisCorretamenteNoSignatureRequest(NotificationChannel channel) {
+        var result = gateway.mapSignatureRequest(channel);
+        var expected = switch (channel) {
+            case SMS -> "sms";
+            case WHATSAPP -> "whatsapp";
+            case EMAIL -> "email";
+        };
+        assertThat(result).isEqualTo(expected);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// getEnvelope
     // ══════════════════════════════════════════════════════════════════════
 
     @Nested
@@ -175,12 +292,19 @@ class ClickSignGatewayTest {
         // addSigner
         // ══════════════════════════════════════════════════════════════════════
 
-        @Nested
-        @DisplayName("addSigner")
-        class AddSigner {
+    @Nested
+    @DisplayName("addSigner")
+    class AddSigner {
 
-            @Test
-            @DisplayName("deve mapear NotificationChannel.EMAIL para 'email' na ClickSign")
+        @Test
+        @DisplayName("deve enviar lembrete com sucesso")
+        void deveEnviarLembreteComSucesso() {
+            gateway.remindSigner("env-id", "signer-id");
+            verify(clickSignClient).remindSigner(eq("env-id"), eq("signer-id"));
+        }
+
+        @Test
+        @DisplayName("deve mapear NotificationChannel.EMAIL para 'email' na ClickSign")
             void deveMapearEmailCorretamente() {
                 var cmd = AddSignerCommand.builder()
                         .name("Bernardo Goes")

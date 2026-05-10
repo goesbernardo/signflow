@@ -1,5 +1,6 @@
 package com.signflow.infrastructure.persistence.entity;
 
+import com.signflow.infrastructure.security.EncryptionConverter;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,9 +25,17 @@ public class SignerEntity {
     @Column(name = "external_id", unique = true)
     private String externalId;
 
+    @Convert(converter = EncryptionConverter.class)
     private String name;
 
+    @Convert(converter = EncryptionConverter.class)
     private String email;
+
+    @Convert(converter = EncryptionConverter.class)
+    private String documentation;
+
+    @Column(name = "auth_method")
+    private String authMethod;
 
     /**
      * Status do signatário em relação à assinatura.

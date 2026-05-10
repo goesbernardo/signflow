@@ -11,5 +11,6 @@ public enum Status {
     CANCELED,
     CLOSED,
     EXPIRED,   
-    REFUSED
+    REFUSED,
+    DELETED
 }

@@ -172,4 +172,18 @@ public interface SignatureService {
      */
     void remindSigner(String externalId, String signerId, ProviderSignature provider);
 
+    /**
+     * Adiciona um observador ao envelope.
+     */
+    void addNotifier(String externalId, AddNotifierCommand cmd, ProviderSignature provider);
+
+    /**
+     * Lista o histórico de entregas de webhooks outbound para um envelope.
+     */
+    List<com.signflow.api.dto.OutboundWebhookDeliveryResponse> getWebhookDeliveries(String externalId);
+
+    /**
+     * Realiza o soft delete do usuário logado (LGPD - Direito ao esquecimento).
+     */
+    void deleteMe();
 }

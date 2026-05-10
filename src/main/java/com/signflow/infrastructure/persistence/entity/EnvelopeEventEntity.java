@@ -57,6 +57,9 @@ public class EnvelopeEventEntity {
     @Column(name = "provider_event")
     private String providerEvent;
 
+    @Column(name = "metadata")
+    private String metadata;
+
     /**
      * Origem da mudança: "API" ou "WEBHOOK"
      */

@@ -37,6 +37,7 @@ public class ClicksignWebhookEventMapper {
                 .providerEvent(attributes.name())
                 .providerStatus(attributes.status())
                 .occurredAt(parseDateTime(attributes.updatedAt() != null ? attributes.updatedAt() : attributes.createdAt()))
+                .metadata(Map.of("auth_method", attributes.authMethod() != null ? attributes.authMethod() : "unknown"))
                 .build();
     }
 

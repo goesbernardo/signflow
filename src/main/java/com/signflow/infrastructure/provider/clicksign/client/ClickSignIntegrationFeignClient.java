@@ -110,6 +110,9 @@ public interface ClickSignIntegrationFeignClient {
     @PostMapping(value = "envelopes/{envelopeId}/signers/{signerId}/remind")
     void remindSigner(@PathVariable String envelopeId, @PathVariable String signerId);
 
+    @PostMapping(value = "envelopes/{envelopeId}/notifiers")
+    SignatureClickSignResponseDTO createNotifier(@PathVariable String envelopeId, @RequestBody ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignNotifierAttributesDTO, Void>> request);
+
     @PostMapping(value = "/acceptance_term/whatsapps", consumes = "application/vnd.api+json", produces = "application/vnd.api+json")
     ClickSignWhatsAppAcceptanceResponseDTO createWhatsAppAcceptance(@RequestBody ClickSignRequestApiDTO<ClickSignRequestApiDataDTO<ClickSignWhatsAppAcceptanceAttributesDTO, Void>> request);
 

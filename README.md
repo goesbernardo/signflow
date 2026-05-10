@@ -1,150 +1,373 @@
 # SignFlow
 
-O **SignFlow** é uma API de gerenciamento de assinaturas eletrônicas, projetada com foco em resiliência, segurança e extensibilidade. O sistema é **agnóstico a provedores**, permitindo a integração com diversos serviços de assinatura através de uma interface unificada.
+> **Gateway de Assinatura Eletrônica Multi-Provider**  
+> Uma API unificada que abstrai múltiplos provedores de assinatura eletrônica — integre uma vez, use qualquer provider.
 
+---
 
+## Visão Geral
 
-## 🚀 Tecnologias
+O SignFlow é uma plataforma backend construída com **Spring Boot** que funciona como camada de abstração entre sua aplicação e os provedores de assinatura eletrônica do mercado.
 
-- **Java 17** (Utilizando **Records** para DTOs imutáveis) e **Spring Boot 3.3.4**
-- **Spring Security** com **JWT (JSON Web Token)**
-- **Spring Data JPA** com **PostgreSQL**
-- **OpenFeign** para integrações de API
-- **Resilience4j** (Circuit Breaker) para tolerância a falhas
-- **SpringDoc OpenAPI** (Swagger) para documentação
-- **Docker** e **Docker Compose**
-- **Lombok** com **@Builder** e **@Jacksonized** para Records
+Em vez de integrar cada provedor de forma isolada — lidando com APIs diferentes, autenticações diferentes e webhooks em formatos diferentes — você integra o SignFlow uma única vez e ganha acesso a todos eles com uma API padronizada.
 
-## 🏗️ Arquitetura
+### Por que o SignFlow?
 
-O projeto segue princípios de **Arquitetura Hexagonal (Portas e Adaptadores)**, separando as regras de negócio das implementações técnicas.
+| Problema atual | O que o SignFlow resolve |
+|---|---|
+| Lock-in com um único provider | Troque de provider sem alterar uma linha de código |
+| Múltiplas integrações para múltiplos providers | Uma API, uma autenticação, um formato de webhook |
+| Sem controle de custo por provider | Smart routing automático por regras configuráveis |
+| Provider caiu, contratos parados | Fallback automático para provider secundário |
+| Dois painéis para dois providers | Dashboard e auditoria unificados |
 
-- **Domínio:** Modelos de negócio, enums globais e exceções de domínio (`com.signflow.domain`).
-- **Aplicação:** Portas de entrada (`SignatureService`) e saída (`ESignatureGateway`), além da implementação dos serviços (`com.signflow.application`).
-- **Infraestrutura:** Adaptadores para persistência JPA, clientes Feign para integração com provedores e tratamento global de exceções (`com.signflow.infrastructure`).
+---
 
-## 🔐 Segurança
+## Funcionalidades
 
-A API está protegida por autenticação JWT.
+- **Fluxo completo em uma chamada** — crie envelope, adicione documentos, configure signatários e ative em um único `POST`
+- **7 métodos de autenticação** — E-mail, SMS, WhatsApp, Pix, Assinatura Manuscrita, Biometria Facial e API
+- **Aceite via WhatsApp** — formalização de acordos sem documento PDF
+- **Smart Routing** — seleção automática de provider por regras configuráveis (`ALWAYS`, `AUTH_METHOD`)
+- **Webhook normalizado** — recebimento e processamento de eventos de qualquer provider em formato único
+- **Webhook de saída** — notificação em tempo real para a URL do cliente com retry automático (3 tentativas com backoff)
+- **Observadores** — gestores acompanham o envelope sem precisar assinar
+- **Lembrete manual** — renotificação de signatários com rate limit de 1/hora
+- **Cancelamento e ativação manual** — controle total do ciclo de vida do envelope
+- **Auditoria completa** — timeline de eventos com origem (API ou WEBHOOK), evento do provider e signatário responsável
 
-### Usuário Padrão (Criado na inicialização)
-- **Usuário:** `admin`
-- **Senha:** `admin123`
+---
 
-### Como se autenticar
-1. Realize o login no endpoint `/api/v1/auth/login`.
-2. Utilize o token retornado no cabeçalho `Authorization` de todas as requisições subsequentes:
-   ```http
-   Authorization: Bearer <seu_token_jwt>
-   ```
+## Arquitetura
 
-## ⚙️ Configuração e Execução
+O projeto segue os princípios da **Arquitetura Hexagonal** (Ports and Adapters):
 
-### Pré-requisitos
-- Docker e Docker Compose
-- JDK 17
-- Maven (ou utilize o `./mvnw` incluso)
-
-### Variáveis de Ambiente
-As variáveis de configuração são organizadas por provedor. Exemplo de configuração para a ClickSign e JWT:
-
-| Variável | Descrição | Valor Padrão |
-|----------|-----------|--------------|
-| `JWT_SECRET` | Chave secreta para geração do JWT | (Obrigatório via ENV) |
-| `ADMIN_USERNAME` | Username do administrador padrão (Migration) | `admin` |
-| `ADMIN_PASSWORD` | Senha BCrypt do administrador padrão (Migration) | `admin123` (Criptografado) |
-| `CLICKSIGN_URL` | URL da API da ClickSign | `https://sandbox.clicksign.com/api/v3` |
-| `CLICKSIGN_API_TOKEN` | Token de acesso da ClickSign | (Token de Sandbox) |
-| `CLICKSIGN_HMAC_SECRET` | Chave secreta para validação de Webhook | (Opcional) |
-
-*Nota: Para novos provedores, siga o padrão `NOMEPROVEDOR_URL` e `NOMEPROVEDOR_TOKEN`.*
-
-### Execução com Docker
-O projeto inclui um `docker-compose.yaml` para subir o banco de dados PostgreSQL:
-
-```bash
-docker-compose up -d
+```
+signflow/
+├── api/                        # Controllers e DTOs (entrada)
+├── application/
+│   ├── port/
+│   │   ├── in/                 # Interfaces de entrada (SignatureService)
+│   │   └── out/                # Interfaces de saída (ESignatureGateway)
+│   ├── service/                # Implementações de negócio
+│   └── webhook/                # Processamento de eventos
+├── domain/
+│   ├── command/                # Objetos de comando (neutros de provider)
+│   ├── exception/              # Exceções de domínio com códigos semânticos
+│   └── model/                  # Modelos de domínio
+├── enums/                      # Enums neutros (SignatureAuthMethod, SignerRole...)
+└── infrastructure/
+    ├── exception/              # Tratamento global de erros
+    ├── gateway/                # Registry de providers
+    ├── persistence/            # Entities, Repositories, Migrations
+    └── provider/
+        └── clicksign/          # Implementação ClickSign (gateway, mapper, webhook)
 ```
 
-### Execução da Aplicação
-```bash
-./mvnw spring-boot:run
-```
+### Princípio central
 
-## 📖 Documentação da API (Swagger)
+Os `Commands` usam enums neutros de domínio — `SignatureAuthMethod`, `SignerRole`, `NotificationChannel`. Cada gateway mapeia esses enums para os tipos específicos do seu provider sem contaminar o domínio.
 
-A documentação interativa da API está disponível em:
-- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
-- **OpenAPI Docs:** `http://localhost:8080/api-docs`
+---
 
-## 🛠️ Endpoints Principais
+## Stack Tecnológica
+
+| Camada | Tecnologia |
+|---|---|
+| Runtime | Java 17 |
+| Framework | Spring Boot 3.x |
+| Segurança | Spring Security + JWT HS512 |
+| Banco de dados | PostgreSQL |
+| Migrations | Flyway |
+| ORM | Spring Data JPA / Hibernate |
+| HTTP Client | OpenFeign |
+| Resiliência | Resilience4j (Circuit Breaker + Rate Limiter) |
+| Documentação | SpringDoc OpenAPI (Swagger UI) |
+| Build | Maven |
+| Deploy | Render |
+
+---
+
+## Providers Suportados
+
+| Provider | Status | Autenticações suportadas |
+|---|---|---|
+| ClickSign | ✅ Implementado | EMAIL, SMS, WhatsApp, Pix, Manuscrita, Biometria Facial, API |
+| D4Sign | 🔜 Em desenvolvimento | — |
+| ZapSign | 📋 Mapeado | — |
+| DocuSign | 📋 Mapeado | — |
+
+---
+
+## Endpoints
+
+A documentação interativa completa está disponível via Swagger UI após o deploy.
 
 ### Autenticação
-- `POST /api/v1/auth/login`: Realiza login e retorna o token JWT.
-
-### Assinaturas (Signature)
-A API utiliza o header `provider` para rotear as chamadas para o adaptador correspondente (ex: `CLICKSIGN`). Todos os endpoints abaixo exigem esse header e o token `Bearer`.
-
-- `POST /api/v1/signatures/create-activate-envelope`: **(Recomendado)** Criação completa de um envelope (documentos, signatários, requisitos e ativação) em uma única chamada.
-- `GET /api/v1/signatures`: Listagem paginada de envelopes do usuário.
-- `GET /api/v1/signatures/{externalId}`: Busca detalhes de um envelope no provedor.
-- `PATCH /api/v1/signatures/{externalId}`: Edita dados básicos de um envelope.
-- `POST /api/v1/signatures/{externalId}/cancel`: Cancela um envelope no provedor e localmente.
-- `GET /api/v1/signatures/{externalId}/timeline`: Retorna a trilha de auditoria (eventos) do envelope.
-
-#### Gerenciamento de Documentos
-- `GET /api/v1/signatures/{externalId}/documents`: Lista documentos de um envelope.
-- `GET /api/v1/signatures/documents/{documentId}`: Visualiza detalhes de um documento.
-- `PATCH /api/v1/signatures/documents/{documentId}`: Edita um documento.
-- `DELETE /api/v1/signatures/documents/{documentId}`: Exclui um documento.
-
-#### Gerenciamento de Signatários
-- `GET /api/v1/signatures/{externalId}/signers`: Lista signatários de um envelope.
-- `GET /api/v1/signatures/{externalId}/signers/{signerId}`: Visualiza detalhes de um signatário.
-- `DELETE /api/v1/signatures/{externalId}/signers/{signerId}`: Exclui um signatário.
-
-#### Gerenciamento de Requisitos
-- `GET /api/v1/signatures/{externalId}/requirements`: Lista requisitos de um envelope.
-- `GET /api/v1/signatures/requirements/{requirementId}`: Visualiza detalhes de um requisito.
-- `DELETE /api/v1/signatures/requirements/{requirementId}`: Exclui um requisito.
-
-### Aceite via WhatsApp
-- `POST /api/v1/whatsapp-acceptance`: Cria um novo fluxo de aceite simplificado via WhatsApp.
-
-### Webhooks
-- `POST /api/v1/webhook/clicksign`: Endpoint público para recebimento de notificações de eventos da ClickSign (protegido por validação HMAC).
-
-## 🌍 Internacionalização (i18n)
-
-A API suporta múltiplos idiomas para as mensagens de erro e respostas do sistema. O idioma é resolvido com base no cabeçalho `Accept-Language` da requisição.
-
-- **Idiomas suportados:**
-  - Português (Brasil): `pt-BR` (Padrão)
-  - Inglês: `en-US` ou `en`
-  - Espanhol: `es-ES` ou `es`
-
-Exemplo de uso:
-```http
-Accept-Language: en-US
+```
+POST /api/v1/auth/login
 ```
 
-## 🧪 Testes
+### Envelopes
+```
+GET    /api/v1/signatures                          # Listar (paginado, filtro por status)
+GET    /api/v1/signatures/{id}                     # Buscar (?includeSigners=true)
+PATCH  /api/v1/signatures/{id}                     # Editar nome
+GET    /api/v1/signatures/{id}/timeline            # Auditoria completa
+POST   /api/v1/signatures/create-activate-envelope # Fluxo completo
+POST   /api/v1/signatures/{id}/activate            # Ativar rascunho
+POST   /api/v1/signatures/{id}/cancel              # Cancelar
+POST   /api/v1/signatures/{id}/notifiers           # Adicionar observador
+GET    /api/v1/signatures/{id}/webhook-deliveries  # Histórico de callbacks
+```
 
-O projeto utiliza **JUnit 5**, **Mockito** e **MockMvc** para garantir a qualidade do código.
+### Signatários
+```
+GET    /api/v1/signatures/{id}/signers
+GET    /api/v1/signatures/{id}/signers/{signerId}
+DELETE /api/v1/signatures/{id}/signers/{signerId}
+POST   /api/v1/signatures/{id}/signers/{signerId}/remind
+```
 
-### Testes Unitários (Controllers)
-Os testes unitários focam na camada de API, validando os contratos, headers obrigatórios e integrações básicas.
-Para executar os testes:
+### Documentos e Requisitos
+```
+GET/PATCH/DELETE /api/v1/signatures/documents/{id}
+GET              /api/v1/signatures/{id}/documents
+GET/DELETE       /api/v1/signatures/requirements/{id}
+GET              /api/v1/signatures/{id}/requirements
+```
+
+### Smart Routing
+```
+GET    /api/v1/routing-rules
+POST   /api/v1/routing-rules
+PUT    /api/v1/routing-rules/{id}
+DELETE /api/v1/routing-rules/{id}
+```
+
+### WhatsApp e Webhook
+```
+POST /api/v1/whatsapp/acceptance
+POST /api/v1/webhook/{provider}
+```
+
+---
+
+## Schema do Banco
+
+O banco é gerenciado inteiramente pelo Flyway. As principais tabelas:
+
+| Tabela | Descrição |
+|---|---|
+| `users` | Usuários da plataforma com role e status |
+| `envelope_request` | Envelopes com status interno e do provider |
+| `signer` | Signatários com status, `signed_at` e `ip_address` |
+| `document` | Documentos associados ao envelope |
+| `requirement` | Requisitos de qualificação e autenticação |
+| `envelope_event` | Auditoria completa: origem, evento do provider, signatário |
+| `envelope_notifier` | Observadores do envelope |
+| `outbound_webhook_delivery` | Histórico de entregas de callback com retry |
+| `provider_routing_rule` | Regras de smart routing por usuário |
+
+---
+
+## Configuração
+
+### Pré-requisitos
+
+- Java 17+
+- PostgreSQL 14+
+- Maven 3.8+
+
+### Variáveis de ambiente
+
+Crie um arquivo `.env` baseado no exemplo abaixo. **Nunca commite credenciais reais.**
+
+```env
+# Banco de dados
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/signflow
+SPRING_DATASOURCE_USERNAME=seu_usuario
+SPRING_DATASOURCE_PASSWORD=sua_senha
+
+# JWT — mínimo 64 caracteres (512 bits para HS512)
+# gere com: openssl rand -hex 64
+JWT_SECRET=seu_jwt_secret_de_no_minimo_64_caracteres_aqui
+
+# ClickSign
+CLICKSIGN_URL=https://sandbox.clicksign.com/api/v3
+CLICKSIGN_API_TOKEN=seu_token_clicksign
+CLICKSIGN_WEBHOOK_SECRET=seu_webhook_secret
+
+# Swagger
+SWAGGER_SERVER_URL=http://localhost:8080
+```
+
+### Executando localmente
+
 ```bash
-./mvnw test
+# Clonar o repositório
+git clone https://github.com/goesbernardo/signflow.git
+cd signflow
+
+# Subir o banco com Docker
+docker-compose up -d
+
+# Executar a aplicação
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-## 🛡️ Resiliência e Erros
-A integração com provedores externos é protegida por um **Circuit Breaker** (Resilience4j). Caso um provedor esteja instável, a aplicação aciona métodos de fallback que retornam mensagens de erro internacionalizadas. Cada provedor possui sua própria configuração de circuit breaker, garantindo isolamento entre falhas.
+A aplicação estará disponível em `http://localhost:8080`.  
+Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-## 🗄️ Persistência e Auditoria
-A aplicação mantém um registro local de:
-- **Envelopes:** Status interno, status original do provedor (`provider_status`), ID externo e usuário criador.
-- **Signatários e Documentos:** Vinculados aos envelopes.
-- **Trilha de Auditoria:** Eventos imutáveis que registram cada mudança de status do envelope, capturando o status anterior, o novo status e o status bruto enviado pelo provedor via webhook.
-- **Webhooks:** Suporte a múltiplos formatos de payload (JSON:API e legado para WhatsApp), garantindo a integridade dos dados via auditoria.
+---
+
+## Fluxo de Assinatura
+
+### Fluxo completo em uma chamada
+
+```bash
+curl -X POST http://localhost:8080/api/v1/signatures/create-activate-envelope \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -H "provider: CLICKSIGN" \
+  -d '{
+    "name": "Contrato de Prestação de Serviços",
+    "documents": [{
+      "filename": "contrato.pdf",
+      "content_base64": "data:application/pdf;base64,..."
+    }],
+    "signers": [{
+      "name": "João Silva",
+      "email": "joao@empresa.com",
+      "hasDocumentation": false,
+      "notificationChannel": "EMAIL"
+    }],
+    "requirements": [{
+      "role": "SIGN",
+      "auth": "EMAIL"
+    }],
+    "autoActivate": true,
+    "callbackUrl": "https://meu-sistema.com/webhook/signflow"
+  }'
+```
+
+### Métodos de autenticação disponíveis
+
+| Valor | Descrição | Requisitos |
+|---|---|---|
+| `EMAIL` | Token por e-mail | — |
+| `SMS` | Token por SMS | `phone_number` obrigatório |
+| `WHATSAPP` | Token por WhatsApp | `phone_number` obrigatório |
+| `PIX` | Pagamento Pix R$ 0,01 | `documentation` (CPF) obrigatório |
+| `HANDWRITTEN` | Assinatura manuscrita | — |
+| `FACIAL_BIOMETRICS` | Reconhecimento facial | `documentation` (CPF) obrigatório |
+| `API` | Programática | — |
+
+### Papéis do signatário
+
+`SIGN` · `PARTY` · `CONTRACTOR` · `WITNESS` · `INTERVENING`
+
+---
+
+## Smart Routing
+
+Configure regras para que o SignFlow selecione o provider automaticamente:
+
+```bash
+# Sempre usar ClickSign (provider padrão)
+POST /api/v1/routing-rules
+{
+  "priority": 1,
+  "conditionType": "ALWAYS",
+  "provider": "CLICKSIGN",
+  "active": true
+}
+
+# Usar D4Sign quando o método de auth for PIX
+POST /api/v1/routing-rules
+{
+  "priority": 2,
+  "conditionType": "AUTH_METHOD",
+  "conditionValue": "PIX",
+  "provider": "D4SIGN",
+  "active": true
+}
+```
+
+Quando o header `provider` não for informado, o SignFlow avalia as regras em ordem de prioridade e seleciona automaticamente.
+
+---
+
+## Segurança
+
+- Autenticação via **JWT HS512** com expiração configurável
+- Senhas com **BCrypt fator 12**
+- **Rate Limiting** por usuário e por IP
+- **Circuit Breaker** para proteção contra falhas do provider
+- Sessão **stateless** — sem estado no servidor
+- Rastreabilidade completa com **requestId** e **userId** em todos os logs
+- Rotas públicas restritas: apenas `/auth/login`, `/webhook/**`, `/swagger-ui/**` e `/actuator/health`
+
+---
+
+## Rastreabilidade e Auditoria
+
+Cada operação gera um evento rastreável na tabela `envelope_event`:
+
+```
+source: API | WEBHOOK
+provider_event: sign | cancel | close | deadline | refusal | add_signer
+provider_status: running | completed | canceled | draft
+signer_id: quem executou a ação
+occurred_at: timestamp exato
+```
+
+Todos os logs incluem `requestId` (UUID por requisição) e `userId` (usuário autenticado).
+
+---
+
+## Webhook de Saída
+
+Configure `callbackUrl` no envelope para receber notificações em tempo real:
+
+```json
+{
+  "envelopeId": "uuid-do-envelope",
+  "provider": "CLICKSIGN",
+  "eventType": "DOCUMENT_COMPLETED",
+  "status": "CLOSED",
+  "occurredAt": "2026-05-10T14:30:00Z"
+}
+```
+
+O sistema tenta a entrega 3 vezes com backoff progressivo (0s → 60s → 600s). O histórico de entregas está disponível em `GET /signatures/{id}/webhook-deliveries`.
+
+---
+
+## Deploy
+
+O projeto está configurado para deploy no **Render**.
+
+Consulte o `application-prod.yml` e configure as variáveis de ambiente listadas na seção de configuração. O Flyway aplica as migrations automaticamente no startup.
+
+---
+
+## Contribuição
+
+1. Fork o repositório
+2. Crie uma branch: `git checkout -b feature/minha-feature`
+3. Commit suas mudanças: `git commit -m 'feat: descrição da feature'`
+4. Push para a branch: `git push origin feature/minha-feature`
+5. Abra um Pull Request
+
+---
+
+## Licença
+
+Este projeto é proprietário. Todos os direitos reservados.
+
+---
+
+<div align="center">
+  <sub>Construído com Spring Boot · PostgreSQL · Flyway · OpenFeign · Resilience4j</sub>
+</div>

@@ -3,23 +3,20 @@ package com.signflow.application;
 import com.signflow.application.port.out.ESignatureGateway;
 import com.signflow.application.service.impl.SignatureServiceImpl;
 import com.signflow.domain.command.*;
-import com.signflow.infrastructure.gateway.SignatureGatewayRegistry;
-import com.signflow.infrastructure.persistence.entity.DocumentEntity;
-import com.signflow.infrastructure.persistence.entity.EnvelopeEntity;
-import com.signflow.infrastructure.persistence.entity.RequirementEntity;
-import com.signflow.infrastructure.persistence.entity.SignerEntity;
+import com.signflow.domain.exception.DomainErrorCode;
+import com.signflow.domain.exception.DomainException;
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
 import com.signflow.enums.ProviderSignature;
-import com.signflow.enums.RequirementRole;
 import com.signflow.enums.Status;
+import com.signflow.infrastructure.gateway.SignatureGatewayRegistry;
+import com.signflow.infrastructure.persistence.entity.DocumentEntity;
+import com.signflow.infrastructure.persistence.entity.EnvelopeEntity;
+import com.signflow.infrastructure.persistence.entity.RequirementEntity;
+import com.signflow.infrastructure.persistence.entity.SignerEntity;
 import com.signflow.infrastructure.persistence.repository.*;
-
-import com.signflow.domain.exception.DomainErrorCode;
-import com.signflow.domain.exception.DomainException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,6 +25,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.kafka.core.KafkaTemplate;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,17 +53,59 @@ class SignatureServiceImplTest {
     @Mock
     private EnvelopeEventRepository eventRepository;
     @Mock
+    private NotifierRepository notifierRepository;
+    @Mock
+    private OutboundWebhookDeliveryRepository outboundWebhookDeliveryRepository;
+    @Mock
+    private com.signflow.application.service.SmartRoutingService smartRoutingService;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private AuditLogRepository auditLogRepository;
+    @Mock
+    private KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock
+    private HttpServletRequest request;
+    @Mock
     private ESignatureGateway gateway;
 
     @InjectMocks
     private SignatureServiceImpl envelopeService;
 
-    private String envelopeId = "env-123";
-    private String signerId = "signer-123";
-    private String documentId = "doc-123";
+    private final String envelopeId = "env-123";
+    private final String signerId = "signer-123";
+    private final String documentId = "doc-123";
 
-    @BeforeEach
-    void setUp() {
+    @Test
+    void shouldCreateEnvelopeWithSmartRoutingWhenProviderIsNull() {
+        CreateEnvelopeCommand cmd = CreateEnvelopeCommand.builder().name("Teste").build();
+        
+        // Mock Security Context
+        SecurityContext securityContext = mock(SecurityContext.class);
+        Authentication authentication = mock(Authentication.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("user");
+        SecurityContextHolder.setContext(securityContext);
+
+        try {
+            when(smartRoutingService.route(eq("user"), any(CreateEnvelopeCommand.class))).thenReturn(ProviderSignature.CLICKSIGN);
+            when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+            when(gateway.createEnvelope(any())).thenReturn(Envelope.builder().externalId(envelopeId).build());
+
+            EnvelopeEntity envelopeEntity = new EnvelopeEntity();
+            envelopeEntity.setId(1L);
+            envelopeEntity.setStatus(Status.PROCESSING);
+            when(repository.save(any(EnvelopeEntity.class))).thenReturn(envelopeEntity);
+
+            lenient().when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(null);
+
+            envelopeService.createEnvelope(cmd, null);
+
+            verify(smartRoutingService).route(eq("user"), any(CreateEnvelopeCommand.class));
+            verify(gateway).createEnvelope(cmd);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
 //    @Test
@@ -182,7 +223,7 @@ class SignatureServiceImplTest {
         when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class)))
                 .thenReturn(mockSigners.get(0))
                 .thenReturn(mockSigners.get(1));
-        
+
         when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelope));
 
         List<Signer> result = envelopeService.addSigners(envelopeId, commands, ProviderSignature.CLICKSIGN);
@@ -201,39 +242,44 @@ class SignatureServiceImplTest {
         lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
 
-        CreateFullEnvelopeCommand cmd = CreateFullEnvelopeCommand.builder()
-                .name("Full")
-                .documents(List.of(AddDocumentCommand.builder().filename("d.pdf").build()))
-                .signers(List.of(AddSignerCommand.builder().name("S").phoneNumber("5511999999999").build()))
-                .autoActivate(true)
-                .build();
-
-        EnvelopeEntity envelopeEntity = new EnvelopeEntity();
-        envelopeEntity.setId(1L);
-        envelopeEntity.setExternalId(envelopeId);
-        envelopeEntity.setStatus(Status.DRAFT);
-
-        Envelope mockEnv = Envelope.builder().externalId(envelopeId).name("Full").status(Status.PROCESSING).build();
-        Document mockDoc = Document.builder().externalId(documentId).build();
-        List<Signer> mockSigners = List.of(Signer.builder().externalId(signerId).build());
-
-        lenient().when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
-        
-        // Mock createEnvelope
-        lenient().when(gateway.createEnvelope(any(CreateEnvelopeCommand.class))).thenReturn(mockEnv);
-        lenient().when(repository.save(any(EnvelopeEntity.class))).thenReturn(envelopeEntity);
-        
-        // Mock addDocument
-        lenient().when(gateway.addDocument(eq(envelopeId), any(AddDocumentCommand.class))).thenReturn(mockDoc);
-        lenient().when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelopeEntity));
-        
-        // Mock addSigners
-        lenient().when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class))).thenReturn(mockSigners.get(0));
-        
-        // Mock getEnvelope (at the end of createFullEnvelope)
-        lenient().when(gateway.getEnvelope(envelopeId)).thenReturn(mockEnv);
-
         try {
+            CreateFullEnvelopeCommand cmd = CreateFullEnvelopeCommand.builder()
+                    .name("Full")
+                    .documents(List.of(AddDocumentCommand.builder().filename("d.pdf").build()))
+                    .signers(List.of(AddSignerCommand.builder().name("S").phoneNumber("5511999999999").build()))
+                    .autoActivate(true)
+                    .build();
+
+            EnvelopeEntity envelopeEntity = new EnvelopeEntity();
+            envelopeEntity.setId(1L);
+            envelopeEntity.setExternalId(envelopeId);
+            envelopeEntity.setStatus(Status.DRAFT);
+
+            Envelope mockEnv = Envelope.builder().externalId(envelopeId).name("Full").status(Status.PROCESSING).build();
+            Document mockDoc = Document.builder().externalId(documentId).build();
+            List<Signer> mockSigners = List.of(Signer.builder().externalId(signerId).build());
+
+            lenient().when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+
+            // Mock smart routing
+            lenient().when(smartRoutingService.route(eq("test-user"), any(CreateFullEnvelopeCommand.class))).thenReturn(ProviderSignature.CLICKSIGN);
+
+            // Mock createEnvelope
+            lenient().when(gateway.createEnvelope(any(CreateEnvelopeCommand.class))).thenReturn(mockEnv);
+            lenient().when(repository.save(any(EnvelopeEntity.class))).thenReturn(envelopeEntity);
+
+            // Mock addDocument
+            lenient().when(gateway.addDocument(eq(envelopeId), any(AddDocumentCommand.class))).thenReturn(mockDoc);
+            lenient().when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelopeEntity));
+
+            // Mock addSigners
+            lenient().when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class))).thenReturn(mockSigners.get(0));
+
+            // Mock getEnvelope (at the end of createFullEnvelope)
+            lenient().when(gateway.getEnvelope(envelopeId)).thenReturn(mockEnv);
+
+            lenient().when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(null);
+
             Envelope result = envelopeService.createFullEnvelope(cmd, ProviderSignature.CLICKSIGN);
 
             verify(gateway).createEnvelope(any());
@@ -300,6 +346,7 @@ class SignatureServiceImplTest {
 
         when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
         when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+        lenient().when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(null);
 
         envelopeService.activateEnvelope(envelopeId, ProviderSignature.CLICKSIGN);
 
@@ -334,6 +381,7 @@ class SignatureServiceImplTest {
 
         when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
         when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
+        lenient().when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(null);
 
         envelopeService.cancelEnvelope(envelopeId, ProviderSignature.CLICKSIGN);
 
