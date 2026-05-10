@@ -9,8 +9,6 @@ pipeline {
         DOCKER_IMAGE       = 'goesbernardo/signflow'
         DOCKER_TAG         = "${BUILD_NUMBER}"
         PATH               = "/usr/local/bin:/usr/bin:/bin:${env.PATH}"
-        // Força o cliente Docker a usar a versão de API do daemon
-        // Resolve o erro: "client version 1.29 is too old"
         DOCKER_API_VERSION = '1.40'
     }
 
@@ -21,19 +19,6 @@ pipeline {
             steps {
                 checkout scm
                 echo "Build: #${BUILD_NUMBER}"
-            }
-        }
-
-        // ── Diagnóstico ───────────────────────────────────────────
-        stage('Diagnóstico') {
-            steps {
-                sh '''
-                    echo "=== Docker ==="
-                    docker --version
-                    docker info --format "Server Version: {{.ServerVersion}}" || true
-                    echo "=== PATH ==="
-                    echo $PATH
-                '''
             }
         }
 
@@ -75,6 +60,8 @@ pipeline {
         }
 
         // ── Docker Push ───────────────────────────────────────────
+        // --password-stdin nao suportado no Docker 17.05
+        // Usando docker login com -p diretamente
         stage('Docker Push') {
             steps {
                 withCredentials([usernamePassword(
@@ -84,9 +71,12 @@ pipeline {
                 )]) {
                     sh '''
                         echo "Autenticando no Docker Hub..."
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+
+                        echo "Enviando imagens..."
                         docker push $DOCKER_IMAGE:$DOCKER_TAG
                         docker push $DOCKER_IMAGE:latest
+
                         docker logout
                         echo "Push concluido: $DOCKER_IMAGE:$DOCKER_TAG"
                     '''
