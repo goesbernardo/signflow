@@ -3,11 +3,13 @@ package com.signflow.application.service.impl;
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import com.signflow.api.dto.OutboundWebhookDeliveryResponse;
 import com.signflow.application.port.in.SignatureService;
+import com.signflow.application.port.out.ESignatureGateway;
+import com.signflow.application.service.AuditLogService;
+import com.signflow.application.webhook.NormalizedWebhookEvent;
+import com.signflow.config.KafkaConfig;
+import com.signflow.domain.command.*;
 import com.signflow.domain.exception.DomainErrorCode;
 import com.signflow.domain.exception.DomainException;
-import com.signflow.application.port.out.ESignatureGateway;
-import com.signflow.domain.command.*;
-
 import com.signflow.domain.model.Document;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
@@ -16,20 +18,16 @@ import com.signflow.enums.*;
 import com.signflow.infrastructure.gateway.SignatureGatewayRegistry;
 import com.signflow.infrastructure.persistence.entity.*;
 import com.signflow.infrastructure.persistence.repository.*;
-import com.signflow.infrastructure.persistence.repository.AuditLogRepository;
-import com.signflow.infrastructure.persistence.entity.AuditLogEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.signflow.application.webhook.NormalizedWebhookEvent;
-import com.signflow.config.KafkaConfig;
-import org.springframework.kafka.core.KafkaTemplate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -51,7 +49,7 @@ public class SignatureServiceImpl implements SignatureService {
     private final OutboundWebhookDeliveryRepository outboundWebhookDeliveryRepository;
     private final com.signflow.application.service.SmartRoutingService smartRoutingService;
     private final UserRepository userRepository;
-    private final AuditLogRepository auditLogRepository;
+    private final AuditLogService auditLogService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final HttpServletRequest request;
 
@@ -61,7 +59,7 @@ public class SignatureServiceImpl implements SignatureService {
     @Transactional
     public Envelope createEnvelope(CreateEnvelopeCommand cmd, ProviderSignature provider) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        audit("CREATE_ENVELOPE", "ENVELOPE", null, "Criação de envelope: " + cmd.name());
+        auditLogService.log("CREATE_ENVELOPE", "ENVELOPE", null, "Criação de envelope: " + cmd.name());
         ProviderSignature resolvedProvider = provider != null ? provider : smartRoutingService.route(userId, cmd);
         log.info("Iniciando criação de envelope para o provedor {}", resolvedProvider);
 
@@ -118,7 +116,7 @@ public class SignatureServiceImpl implements SignatureService {
         String currentUserId = SecurityContextHolder.getContext().getAuthentication().getName();
         return repository.findByExternalId(externalId)
                 .map(entity -> {
-                    audit("GET_ENVELOPE", "ENVELOPE", externalId, "Acesso local ao envelope");
+                    auditLogService.log("GET_ENVELOPE", "ENVELOPE", externalId, "Acesso local ao envelope");
                     log.info("[AUDIT] Usuário {} acessou envelope local {}.", currentUserId, externalId);
                     Envelope envelope = Envelope.builder()
                             .id(entity.getId().toString())
@@ -140,7 +138,7 @@ public class SignatureServiceImpl implements SignatureService {
                 })
                 .orElseGet(() -> {
                     ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
-                    audit("GET_ENVELOPE_REMOTE", "ENVELOPE", externalId, "Acesso remoto ao envelope no provedor " + resolvedProvider);
+                    auditLogService.log("GET_ENVELOPE_REMOTE", "ENVELOPE", externalId, "Acesso remoto ao envelope no provedor " + resolvedProvider);
                     log.info("[AUDIT] Usuário {} consultou envelope remoto {} no provedor {}.", currentUserId, externalId, resolvedProvider);
                     return registry.get(resolvedProvider).getEnvelope(externalId);
                 });
@@ -167,6 +165,7 @@ public class SignatureServiceImpl implements SignatureService {
 
         registry.get(resolvedProvider).activateEnvelope(externalId);
         updateStatus(entity, Status.ACTIVE);
+        auditLogService.log("ACTIVATE_ENVELOPE", "ENVELOPE", externalId, "Ativação do envelope no provedor " + resolvedProvider);
     }
 
     // ── cancelEnvelope ────────────────────────────────────────────────────
@@ -185,6 +184,7 @@ public class SignatureServiceImpl implements SignatureService {
 
         registry.get(resolvedProvider).cancelEnvelope(externalId);
         updateStatus(entity, Status.CANCELED);
+        auditLogService.log("CANCEL_ENVELOPE", "ENVELOPE", externalId, "Cancelamento do envelope no provedor " + resolvedProvider);
     }
 
     private ProviderSignature resolveProviderForEnvelope(String externalId, ProviderSignature provider) {
@@ -198,7 +198,7 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     public Page<Envelope> listEnvelopes(Status status, Pageable pageable, boolean includeSigners) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        audit("LIST_ENVELOPES", "ENVELOPE", null, "Listagem de envelopes com status " + status);
+        auditLogService.log("LIST_ENVELOPES", "ENVELOPE", null, "Listagem de envelopes com status " + status);
         log.info("[AUDIT] Usuário {} listou seus envelopes com status {} (includeSigners={})", userId, status, includeSigners);
 
         Page<EnvelopeEntity> entities = status != null
@@ -234,6 +234,7 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     public List<EnvelopeTimelineResponse> getTimeline(String externalId) {
         log.info("Buscando timeline para o envelope {}", externalId);
+        auditLogService.log("GET_TIMELINE", "ENVELOPE", externalId, "Acesso à timeline do envelope");
         return eventRepository.findAllByEnvelopeExternalIdOrderByOccurredAtAsc(externalId)
                 .stream()
                 .map(event -> EnvelopeTimelineResponse.builder()
@@ -601,37 +602,21 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     @Transactional
     public void deleteMe() {
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        log.info("[LGPD] Processando solicitação de exclusão (soft delete) para o usuário: {}", userId);
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        log.info("[LGPD] Processando solicitação de exclusão (soft delete) para o usuário: {}", username);
 
-        userRepository.findByUsername(userId).ifPresent(user -> {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            String originalId = String.valueOf(user.getId());
             user.setDeleted_at(LocalDateTime.now());
+            
+            // Anonimização para LGPD (Direito ao Esquecimento)
+            user.setUsername("deleted_" + originalId);
+            user.setEmail("deleted_" + originalId + "@signflow.com");
+            
             userRepository.save(user);
-            audit("DELETE_ME", "USER", userId, "Usuário marcou sua conta como deletada (Direito ao Esquecimento)");
-            log.info("[AUDIT] Usuário {} marcou sua conta como deletada (Direito ao Esquecimento).", userId);
+            auditLogService.log("DELETE_ME", "USER", originalId, "Usuário marcou sua conta como deletada e dados foram anonimizados");
+            log.info("[AUDIT] Usuário {} marcou sua conta como deletada (Direito ao Esquecimento). Dados anonimizados.", originalId);
         });
-    }
-
-    private void audit(String action, String resourceType, String resourceId, String details) {
-        try {
-            String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-            String ip = request.getRemoteAddr();
-            String ua = request.getHeader("User-Agent");
-
-            AuditLogEntity logEntry = AuditLogEntity.builder()
-                    .userId(userId)
-                    .action(action)
-                    .resourceType(resourceType)
-                    .resourceId(resourceId)
-                    .details(details)
-                    .ipAddress(ip)
-                    .userAgent(ua)
-                    .build();
-
-            auditLogRepository.save(logEntry);
-        } catch (Exception e) {
-            log.warn("Falha ao registrar log de auditoria: {}", e.getMessage());
-        }
     }
 
     // ── Helpers privados ──────────────────────────────────────────────────

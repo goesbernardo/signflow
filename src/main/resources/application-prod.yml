@@ -4,6 +4,8 @@
 # ================================================================
 
 signflow:
+  encryption:
+    key: ${SIGNFLOW_ENCRYPTION_KEY}
   providers:
     clicksign:
       enabled: true

@@ -1,5 +1,6 @@
 package com.signflow.api.controller;
 
+import com.signflow.application.service.AuditLogService;
 import com.signflow.application.webhook.dto.WebhookReceivedEvent;
 import com.signflow.config.KafkaConfig;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class WebhookController {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final AuditLogService auditLogService;
 
     @PostMapping("/{provider}")
     @Operation(summary = "Webhook ",
@@ -25,6 +27,8 @@ public class WebhookController {
     public ResponseEntity<Void> processWebhook(@PathVariable String provider, @RequestBody String payload) {
 
         log.info("Recebendo webhook do provedor {}. Publicando no Kafka.", provider);
+
+        auditLogService.log("WEBHOOK_RECEIVED", "PROVIDER", provider, "Recebido webhook de " + provider);
         
         WebhookReceivedEvent event = WebhookReceivedEvent.builder()
                 .provider(provider)

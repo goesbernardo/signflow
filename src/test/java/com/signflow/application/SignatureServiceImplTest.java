@@ -1,6 +1,7 @@
 package com.signflow.application;
 
 import com.signflow.application.port.out.ESignatureGateway;
+import com.signflow.application.service.AuditLogService;
 import com.signflow.application.service.impl.SignatureServiceImpl;
 import com.signflow.domain.command.*;
 import com.signflow.domain.exception.DomainErrorCode;
@@ -28,11 +29,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.kafka.core.KafkaTemplate;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -61,7 +62,7 @@ class SignatureServiceImplTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private AuditLogRepository auditLogRepository;
+    private AuditLogService auditLogService;
     @Mock
     private KafkaTemplate<String, Object> kafkaTemplate;
     @Mock
@@ -533,6 +534,35 @@ class SignatureServiceImplTest {
 
         verify(gateway).remindSigner(envelopeId, signerId);
         verify(signerRepository).save(entity);
+    }
+
+    @Test
+    void shouldDeleteMeSuccessfully() {
+        // Mock Security Context
+        SecurityContext securityContext = mock(SecurityContext.class);
+        Authentication authentication = mock(Authentication.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn("user-to-delete");
+        SecurityContextHolder.setContext(securityContext);
+
+        try {
+            com.signflow.infrastructure.persistence.entity.UserEntity user = new com.signflow.infrastructure.persistence.entity.UserEntity();
+            user.setId(123L);
+            user.setUsername("user-to-delete");
+            user.setEmail("user@test.com");
+
+            when(userRepository.findByUsername("user-to-delete")).thenReturn(Optional.of(user));
+
+            envelopeService.deleteMe();
+
+            assertNotNull(user.getDeleted_at());
+            assertEquals("deleted_123", user.getUsername());
+            assertEquals("deleted_123@signflow.com", user.getEmail());
+            verify(userRepository).save(user);
+            verify(auditLogService).log(eq("DELETE_ME"), eq("USER"), eq("123"), anyString());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test

@@ -1,13 +1,15 @@
 signflow:
+  encryption:
+    key: ${SIGNFLOW_ENCRYPTION_KEY:}
   providers:
     clicksign:
       enabled: true
       base-url: ${CLICKSIGN_URL:https://sandbox.clicksign.com/api/v3}
-      token: ${CLICKSIGN_API_TOKEN}
-      webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET}
+      token: ${CLICKSIGN_API_TOKEN:}
+      webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET:}
     docusign:
       enabled: false
-      base-url: ${DOCUSIGN_URL}
+      base-url: ${DOCUSIGN_URL:}
 
 server:
   forward-headers-strategy: framework
@@ -23,7 +25,7 @@ springdoc:
     disable-swagger-default-url: true
 
 swagger:
-  server-url: ${SWAGGER_SERVER_URL}
+  server-url: ${SWAGGER_SERVER_URL:}
 
 spring:
   datasource:
@@ -47,7 +49,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -86,7 +88,7 @@ resilience4j:
 
 security:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:}
     expiration: 86400000 # 24 hours
 
 management:

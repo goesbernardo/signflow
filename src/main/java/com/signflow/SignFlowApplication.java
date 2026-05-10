@@ -3,6 +3,7 @@ package com.signflow;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication(
@@ -12,6 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 )
 @EnableFeignClients(basePackages = {"com.signflow.adapter", "com.signflow.infrastructure"})
 @EnableScheduling
+@EnableAsync
 public class SignFlowApplication {
 
     public static void main(String[] args) {

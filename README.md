@@ -9,7 +9,7 @@
 
 O SignFlow é uma plataforma backend construída com **Spring Boot** que funciona como camada de abstração entre sua aplicação e os provedores de assinatura eletrônica do mercado.
 
-Em vez de integrar cada provedor de forma isolada — lidando com APIs diferentes, autenticações diferentes e webhooks em formatos diferentes — você integra o SignFlow uma única vez e ganha acesso a todos eles com uma API padronizada.
+Em vez de integrar cada provedor de forma isolada — lidando com APIs diferentes, autenticações diferentes e webhooks em formatos diferentes — você integra o SignFlow uma única vez e ganha acesso a todos eles com uma API padronizada, webhook normalizado e smart routing automático.
 
 ### Por que o SignFlow?
 
@@ -19,24 +19,11 @@ Em vez de integrar cada provedor de forma isolada — lidando com APIs diferente
 | Múltiplas integrações para múltiplos providers | Uma API, uma autenticação, um formato de webhook |
 | Sem controle de custo por provider | Smart routing automático por regras configuráveis |
 | Provider caiu, contratos parados | Fallback automático para provider secundário |
-| Dois painéis para dois providers | Dashboard e auditoria unificados |
+| Polling para saber se o contrato foi assinado | Webhook de saída em tempo real com retry automático |
 
 ---
 
-## Funcionalidades
 
-- **Fluxo completo em uma chamada** — crie envelope, adicione documentos, configure signatários e ative em um único `POST`
-- **7 métodos de autenticação** — E-mail, SMS, WhatsApp, Pix, Assinatura Manuscrita, Biometria Facial e API
-- **Aceite via WhatsApp** — formalização de acordos sem documento PDF
-- **Smart Routing** — seleção automática de provider por regras configuráveis (`ALWAYS`, `AUTH_METHOD`)
-- **Webhook normalizado** — recebimento e processamento de eventos de qualquer provider em formato único
-- **Webhook de saída** — notificação em tempo real para a URL do cliente com retry automático (3 tentativas com backoff)
-- **Observadores** — gestores acompanham o envelope sem precisar assinar
-- **Lembrete manual** — renotificação de signatários com rate limit de 1/hora
-- **Cancelamento e ativação manual** — controle total do ciclo de vida do envelope
-- **Auditoria completa** — timeline de eventos com origem (API ou WEBHOOK), evento do provider e signatário responsável
-
----
 
 ## Arquitetura
 
@@ -44,29 +31,46 @@ O projeto segue os princípios da **Arquitetura Hexagonal** (Ports and Adapters)
 
 ```
 signflow/
-├── api/                        # Controllers e DTOs (entrada)
+├── api/                          # Controllers e DTOs (entrada)
 ├── application/
 │   ├── port/
-│   │   ├── in/                 # Interfaces de entrada (SignatureService)
-│   │   └── out/                # Interfaces de saída (ESignatureGateway)
-│   ├── service/                # Implementações de negócio
-│   └── webhook/                # Processamento de eventos
+│   │   ├── in/                   # Interfaces de entrada (SignatureService)
+│   │   └── out/                  # Interfaces de saída (ESignatureGateway)
+│   ├── service/                  # Implementações de negócio
+│   └── webhook/                  # Pipeline de eventos (Kafka consumer → processor → outbound)
 ├── domain/
-│   ├── command/                # Objetos de comando (neutros de provider)
-│   ├── exception/              # Exceções de domínio com códigos semânticos
-│   └── model/                  # Modelos de domínio
-├── enums/                      # Enums neutros (SignatureAuthMethod, SignerRole...)
+│   ├── command/                  # Objetos de comando — neutros de provider
+│   ├── exception/                # Exceções com códigos semânticos (DomainErrorCode)
+│   └── model/                   # Modelos de domínio
+├── enums/                        # Enums neutros (SignatureAuthMethod, SignerRole...)
 └── infrastructure/
-    ├── exception/              # Tratamento global de erros
-    ├── gateway/                # Registry de providers
-    ├── persistence/            # Entities, Repositories, Migrations
+    ├── exception/                # Tratamento global de erros (GlobalExceptionHandler)
+    ├── gateway/                  # Registry de providers (SignatureGatewayRegistry)
+    ├── persistence/              # Entities, Repositories, Migrations (Flyway)
+    ├── security/                 # EncryptionConverter (AES/GCM)
     └── provider/
-        └── clicksign/          # Implementação ClickSign (gateway, mapper, webhook)
+        └── clicksign/            # Gateway ClickSign — client, mapper, webhook handler
 ```
 
-### Princípio central
+### Pipeline de Webhook
 
-Os `Commands` usam enums neutros de domínio — `SignatureAuthMethod`, `SignerRole`, `NotificationChannel`. Cada gateway mapeia esses enums para os tipos específicos do seu provider sem contaminar o domínio.
+```
+Provider (ClickSign)
+    ↓ POST /webhook/{provider}
+WebhookController → publica em Kafka (202 Accepted imediato)
+    ↓ signflow.webhook.received
+WebhookConsumer (@KafkaListener) → chama WebhookHandler
+    ↓
+WebhookEventProcessor → persiste evento + atualiza banco
+    ↓
+OutboundWebhookService (@Async) → notifica callbackUrl do cliente
+    ↓ falha → PENDING_RETRY → @Scheduled retry (60s → 600s)
+    ↓ 3 falhas → Dead Letter Queue (signflow.webhook.outbound.dlq)
+```
+
+### Princípio central de domínio
+
+Os `Commands` usam enums neutros — `SignatureAuthMethod`, `SignerRole`, `NotificationChannel`. Cada gateway mapeia esses enums para os tipos específicos do seu provider sem contaminar o domínio. Adicionar um novo provider não altera nenhum endpoint ou regra de negócio existente.
 
 ---
 
@@ -76,7 +80,8 @@ Os `Commands` usam enums neutros de domínio — `SignatureAuthMethod`, `SignerR
 |---|---|
 | Runtime | Java 17 |
 | Framework | Spring Boot 3.x |
-| Segurança | Spring Security + JWT HS512 |
+| Segurança | Spring Security + JWT HS512 + AES/GCM |
+| Mensageria | Apache Kafka (Upstash) |
 | Banco de dados | PostgreSQL |
 | Migrations | Flyway |
 | ORM | Spring Data JPA / Hibernate |
@@ -84,15 +89,15 @@ Os `Commands` usam enums neutros de domínio — `SignatureAuthMethod`, `SignerR
 | Resiliência | Resilience4j (Circuit Breaker + Rate Limiter) |
 | Documentação | SpringDoc OpenAPI (Swagger UI) |
 | Build | Maven |
-| Deploy | Render |
+
 
 ---
 
 ## Providers Suportados
 
-| Provider | Status | Autenticações suportadas |
+| Provider | Status | Autenticações |
 |---|---|---|
-| ClickSign | ✅ Implementado | EMAIL, SMS, WhatsApp, Pix, Manuscrita, Biometria Facial, API |
+| ClickSign | ✅ Implementado e testado | EMAIL, SMS, WhatsApp, Pix, Manuscrita, Biometria Facial, API |
 | D4Sign | 🔜 Em desenvolvimento | — |
 | ZapSign | 📋 Mapeado | — |
 | DocuSign | 📋 Mapeado | — |
@@ -101,73 +106,9 @@ Os `Commands` usam enums neutros de domínio — `SignatureAuthMethod`, `SignerR
 
 ## Endpoints
 
-A documentação interativa completa está disponível via Swagger UI após o deploy.
-
-### Autenticação
-```
-POST /api/v1/auth/login
-```
-
-### Envelopes
-```
-GET    /api/v1/signatures                          # Listar (paginado, filtro por status)
-GET    /api/v1/signatures/{id}                     # Buscar (?includeSigners=true)
-PATCH  /api/v1/signatures/{id}                     # Editar nome
-GET    /api/v1/signatures/{id}/timeline            # Auditoria completa
-POST   /api/v1/signatures/create-activate-envelope # Fluxo completo
-POST   /api/v1/signatures/{id}/activate            # Ativar rascunho
-POST   /api/v1/signatures/{id}/cancel              # Cancelar
-POST   /api/v1/signatures/{id}/notifiers           # Adicionar observador
-GET    /api/v1/signatures/{id}/webhook-deliveries  # Histórico de callbacks
-```
-
-### Signatários
-```
-GET    /api/v1/signatures/{id}/signers
-GET    /api/v1/signatures/{id}/signers/{signerId}
-DELETE /api/v1/signatures/{id}/signers/{signerId}
-POST   /api/v1/signatures/{id}/signers/{signerId}/remind
-```
-
-### Documentos e Requisitos
-```
-GET/PATCH/DELETE /api/v1/signatures/documents/{id}
-GET              /api/v1/signatures/{id}/documents
-GET/DELETE       /api/v1/signatures/requirements/{id}
-GET              /api/v1/signatures/{id}/requirements
-```
-
-### Smart Routing
-```
-GET    /api/v1/routing-rules
-POST   /api/v1/routing-rules
-PUT    /api/v1/routing-rules/{id}
-DELETE /api/v1/routing-rules/{id}
-```
-
-### WhatsApp e Webhook
-```
-POST /api/v1/whatsapp/acceptance
-POST /api/v1/webhook/{provider}
-```
-
----
-
-## Schema do Banco
-
-O banco é gerenciado inteiramente pelo Flyway. As principais tabelas:
-
-| Tabela | Descrição |
-|---|---|
-| `users` | Usuários da plataforma com role e status |
-| `envelope_request` | Envelopes com status interno e do provider |
-| `signer` | Signatários com status, `signed_at` e `ip_address` |
-| `document` | Documentos associados ao envelope |
-| `requirement` | Requisitos de qualificação e autenticação |
-| `envelope_event` | Auditoria completa: origem, evento do provider, signatário |
-| `envelope_notifier` | Observadores do envelope |
-| `outbound_webhook_delivery` | Histórico de entregas de callback com retry |
-| `provider_routing_rule` | Regras de smart routing por usuário |
+A documentação interativa completa está disponível via **Swagger UI**:
+- Local: `http://localhost:8080/swagger-ui.html`
+- Produção: `https://signflow-lysg.onrender.com/swagger-ui.html`
 
 ---
 
@@ -178,6 +119,7 @@ O banco é gerenciado inteiramente pelo Flyway. As principais tabelas:
 - Java 17+
 - PostgreSQL 14+
 - Maven 3.8+
+- Kafka (local ou Upstash)
 
 ### Variáveis de ambiente
 
@@ -191,12 +133,21 @@ SPRING_DATASOURCE_PASSWORD=sua_senha
 
 # JWT — mínimo 64 caracteres (512 bits para HS512)
 # gere com: openssl rand -hex 64
-JWT_SECRET=seu_jwt_secret_de_no_minimo_64_caracteres_aqui
+JWT_SECRET=
+
+# Criptografia de dados sensíveis — mínimo 32 bytes (AES-256)
+# gere com: openssl rand -base64 32
+SIGNFLOW_ENCRYPTION_KEY=
 
 # ClickSign
 CLICKSIGN_URL=https://sandbox.clicksign.com/api/v3
-CLICKSIGN_API_TOKEN=seu_token_clicksign
-CLICKSIGN_WEBHOOK_SECRET=seu_webhook_secret
+CLICKSIGN_API_TOKEN=
+CLICKSIGN_WEBHOOK_SECRET=
+
+# Kafka (Upstash em produção)
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KAFKA_API_KEY=
+KAFKA_API_SECRET=
 
 # Swagger
 SWAGGER_SERVER_URL=http://localhost:8080
@@ -209,21 +160,20 @@ SWAGGER_SERVER_URL=http://localhost:8080
 git clone https://github.com/goesbernardo/signflow.git
 cd signflow
 
-# Subir o banco com Docker
+# Subir PostgreSQL e Kafka com Docker
 docker-compose up -d
 
 # Executar a aplicação
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-A aplicação estará disponível em `http://localhost:8080`.  
-Swagger UI: `http://localhost:8080/swagger-ui.html`
+A aplicação estará disponível em `http://localhost:8080`.
 
 ---
 
 ## Fluxo de Assinatura
 
-### Fluxo completo em uma chamada
+### Criar envelope completo em uma chamada
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/signatures/create-activate-envelope \
@@ -251,84 +201,30 @@ curl -X POST http://localhost:8080/api/v1/signatures/create-activate-envelope \
   }'
 ```
 
-### Métodos de autenticação disponíveis
+> O header `provider` é opcional quando há regras de Smart Routing configuradas.
 
-| Valor | Descrição | Requisitos |
-|---|---|---|
-| `EMAIL` | Token por e-mail | — |
-| `SMS` | Token por SMS | `phone_number` obrigatório |
-| `WHATSAPP` | Token por WhatsApp | `phone_number` obrigatório |
-| `PIX` | Pagamento Pix R$ 0,01 | `documentation` (CPF) obrigatório |
-| `HANDWRITTEN` | Assinatura manuscrita | — |
-| `FACIAL_BIOMETRICS` | Reconhecimento facial | `documentation` (CPF) obrigatório |
-| `API` | Programática | — |
-
-### Papéis do signatário
-
-`SIGN` · `PARTY` · `CONTRACTOR` · `WITNESS` · `INTERVENING`
-
----
 
 ## Smart Routing
 
 Configure regras para que o SignFlow selecione o provider automaticamente:
 
 ```bash
-# Sempre usar ClickSign (provider padrão)
+# Sempre usar ClickSign
 POST /api/v1/routing-rules
-{
-  "priority": 1,
-  "conditionType": "ALWAYS",
-  "provider": "CLICKSIGN",
-  "active": true
-}
+{ "priority": 1, "conditionType": "ALWAYS", "provider": "CLICKSIGN", "active": true }
 
-# Usar D4Sign quando o método de auth for PIX
+# Usar D4Sign quando auth for PIX
 POST /api/v1/routing-rules
-{
-  "priority": 2,
-  "conditionType": "AUTH_METHOD",
-  "conditionValue": "PIX",
-  "provider": "D4SIGN",
-  "active": true
-}
+{ "priority": 2, "conditionType": "AUTH_METHOD", "conditionValue": "PIX", "provider": "D4SIGN", "active": true }
 ```
 
-Quando o header `provider` não for informado, o SignFlow avalia as regras em ordem de prioridade e seleciona automaticamente.
-
----
-
-## Segurança
-
-- Autenticação via **JWT HS512** com expiração configurável
-- Senhas com **BCrypt fator 12**
-- **Rate Limiting** por usuário e por IP
-- **Circuit Breaker** para proteção contra falhas do provider
-- Sessão **stateless** — sem estado no servidor
-- Rastreabilidade completa com **requestId** e **userId** em todos os logs
-- Rotas públicas restritas: apenas `/auth/login`, `/webhook/**`, `/swagger-ui/**` e `/actuator/health`
-
----
-
-## Rastreabilidade e Auditoria
-
-Cada operação gera um evento rastreável na tabela `envelope_event`:
-
-```
-source: API | WEBHOOK
-provider_event: sign | cancel | close | deadline | refusal | add_signer
-provider_status: running | completed | canceled | draft
-signer_id: quem executou a ação
-occurred_at: timestamp exato
-```
-
-Todos os logs incluem `requestId` (UUID por requisição) e `userId` (usuário autenticado).
+Quando o header `provider` não for informado, o SignFlow avalia as regras por prioridade e roteia automaticamente.
 
 ---
 
 ## Webhook de Saída
 
-Configure `callbackUrl` no envelope para receber notificações em tempo real:
+Informe `callbackUrl` ao criar o envelope para receber eventos em tempo real:
 
 ```json
 {
@@ -340,34 +236,40 @@ Configure `callbackUrl` no envelope para receber notificações em tempo real:
 }
 ```
 
-O sistema tenta a entrega 3 vezes com backoff progressivo (0s → 60s → 600s). O histórico de entregas está disponível em `GET /signatures/{id}/webhook-deliveries`.
+O sistema tenta a entrega até 3 vezes com backoff progressivo (0s → 60s → 600s). Falhas persistentes vão para a Dead Letter Queue. O histórico está disponível em `GET /signatures/{id}/webhook-deliveries`.
 
 ---
 
-## Deploy
+## Segurança
 
-O projeto está configurado para deploy no **Render**.
-
-Consulte o `application-prod.yml` e configure as variáveis de ambiente listadas na seção de configuração. O Flyway aplica as migrations automaticamente no startup.
+- **JWT HS512** — tokens sem fallback de secret; aplicação não sobe sem `JWT_SECRET` configurado
+- **BCrypt fator 12** — senhas com custo computacional adequado
+- **AES/GCM** — criptografia autenticada com IV aleatório por operação; dados do signatário protegidos em repouso
+- **Rate Limiter** — por usuário e por IP (10 req/min)
+- **Circuit Breaker** — proteção automática contra degradação do provider
+- **Stateless** — sem sessão no servidor
+- **Audit Log** — rastreabilidade de acessos e operações críticas com IP e User-Agent
 
 ---
 
-## Contribuição
+## LGPD
 
-1. Fork o repositório
-2. Crie uma branch: `git checkout -b feature/minha-feature`
-3. Commit suas mudanças: `git commit -m 'feat: descrição da feature'`
-4. Push para a branch: `git push origin feature/minha-feature`
-5. Abra um Pull Request
+| Requisito | Implementação |
+|---|---|
+| Proteção de dados em repouso | AES/GCM nos dados do signatário |
+| Direito ao esquecimento | `DELETE /api/v1/users/me` — soft delete + anonimização |
+| Registro de consentimento | Campo `consent_at` na tabela `users` |
+| Rastreabilidade | `audit_log` com userId, action, resourceType, IP e User-Agent |
+| Portabilidade | Timeline completa de eventos por envelope |
 
 ---
 
 ## Licença
 
-Este projeto é proprietário. Todos os direitos reservados.
+Este projeto é proprietário Begotri Ltda. Todos os direitos reservados.
 
 ---
 
 <div align="center">
-  <sub>Construído com Spring Boot · PostgreSQL · Flyway · OpenFeign · Resilience4j</sub>
+  <sub>Construído com Spring Boot · PostgreSQL · Apache Kafka · Flyway · OpenFeign · Resilience4j · AES/GCM</sub>
 </div>
