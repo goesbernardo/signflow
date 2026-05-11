@@ -12,8 +12,8 @@ signflow:
   providers:
     clicksign:
       enabled: true
-      base-url: ${CLICKSIGN_URL}
-      token: ${CLICKSIGN_API_TOKEN}
+      base-url: ${CLICKSIGN_URL:https://sandbox.clicksign.com/api/v3}
+      token: ${CLICKSIGN_API_TOKEN:43e5624f-84fa-4c72-b3c7-03202c34f8c6}
       webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET}
 
 spring:
