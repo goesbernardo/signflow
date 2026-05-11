@@ -38,17 +38,18 @@ services:
 
       SERVER_PORT: 8081
 
-      JWT_SECRET: signflow-secret
+      JWT_SECRET: "signflow-jwt-secret-key-prod-2026"
 
       SIGNFLOW_ENCRYPTION_KEY: "signflow-encryption-key-prod-2026"
 
       CLICKSIGN_URL: https://sandbox.clicksign.com
 
-      CLICKSIGN_API_TOKEN: test-token
+      CLICKSIGN_API_TOKEN: "43e5624f-84fa-4c72-b3c7-03202c34f8c6"
 
       CLICKSIGN_WEBHOOK_SECRET: webhook-secret
 
       SPRING_DATASOURCE_URL: jdbc:postgresql://signflow-db:5432/signflow
+
 
     ports:
       - "8081:8081"
