@@ -1,3 +1,4 @@
+cat > ~/signflow/Jenkinsfile << 'EOF'
 pipeline {
     agent any
 
@@ -71,6 +72,9 @@ pipeline {
     }
 
     post {
-        success { echo '✅ Deploy realizado com sucesso!' }
-        failure { echo '❌ Falha no pipeline!' }
-        al
+        success { echo 'Deploy realizado com sucesso!' }
+        failure { echo 'Falha no pipeline!' }
+        always { cleanWs() }
+    }
+}
+EOF
