@@ -47,6 +47,8 @@ spring:
     clean-disabled: true
 
   kafka:
+    listener:
+      auto-startup: false
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:
       properties:
