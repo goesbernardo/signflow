@@ -171,6 +171,24 @@ A aplicação estará disponível em `http://localhost:8080`.
 
 ---
 
+### Executando em Produção com Docker
+
+Para rodar em um ambiente de produção (servidor próprio ou VPS):
+
+```bash
+# Inicie os serviços em modo background (certifique-se que as vars de ambiente estão setadas)
+docker-compose -f docker-compose.prod.yaml up -d
+```
+
+O `docker-compose.prod.yaml` inclui:
+- **Aplicação**: Imagem buildada localmente, rodando com perfil `prod` e healthcheck configurado.
+- **Banco de Dados**: PostgreSQL 16 (Alpine) com persistência em volume e healthcheck.
+- **Rede Isolada**: O banco de dados não expõe portas para o host, apenas para a aplicação.
+
+> Nota: O Kafka é esperado via variáveis de ambiente (ex: Upstash) para maior resiliência em produção.
+
+---
+
 ## Fluxo de Assinatura
 
 ### Criar envelope completo em uma chamada

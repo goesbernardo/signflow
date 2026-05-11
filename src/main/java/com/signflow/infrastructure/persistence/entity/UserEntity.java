@@ -28,7 +28,6 @@ public class UserEntity implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Convert(converter = EncryptionConverter.class)
     @Column(unique = true, nullable = false)
     private String username;
 
