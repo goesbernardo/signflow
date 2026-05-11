@@ -1,4 +1,3 @@
-cat > ~/signflow/Jenkinsfile << 'EOF'
 pipeline {
     agent any
 
@@ -77,4 +76,3 @@ pipeline {
         always { cleanWs() }
     }
 }
-EOF
