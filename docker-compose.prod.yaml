@@ -40,7 +40,7 @@ services:
 
       JWT_SECRET: signflow-secret
 
-      SIGNFLOW_ENCRYPTION_KEY: signflow-encryption-key
+      SIGNFLOW_ENCRYPTION_KEY: sF9@xL2#vN8$pQ1!kR7*zW4&mT6@aB3%
 
       CLICKSIGN_URL: https://sandbox.clicksign.com
 
