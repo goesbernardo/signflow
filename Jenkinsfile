@@ -1,18 +1,24 @@
 pipeline {
     agent any
 
+    environment {
+        APP_NAME = 'meu-app'
+        IMAGE_NAME = "meu-app:${env.BUILD_NUMBER}"
+        CONTAINER_NAME = 'meu-app-container'
+        APP_PORT = '8081'        // porta da sua aplicação
+        HOST_PORT = '81'         // porta exposta no EC2
+    }
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "Branch: ${env.BRANCH_NAME}"
-                echo "PR: ${env.CHANGE_ID}"
             }
         }
 
-        stage('Build') {
+        stage('Build JAR') {
             steps {
-                sh 'mvn clean compile -B'
+                sh 'mvn clean package -DskipTests -B'
             }
         }
 
@@ -27,26 +33,40 @@ pipeline {
             }
         }
 
-        stage('Package') {
-            when {
-                branch 'master'
-            }
+        stage('Build Docker Image') {
             steps {
-                sh 'mvn package -DskipTests -B'
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                sh """
+                    docker build -t ${IMAGE_NAME} .
+                    docker tag ${IMAGE_NAME} ${APP_NAME}:latest
+                """
+            }
+        }
+
+        stage('Deploy') {
+            when { branch 'main' }
+            steps {
+                sh """
+                    # Para o container antigo se existir
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+
+                    # Sobe o novo container
+                    docker run -d \
+                        --name ${CONTAINER_NAME} \
+                        --restart unless-stopped \
+                        -p ${HOST_PORT}:${APP_PORT} \
+                        ${APP_NAME}:latest
+
+                    # Limpa imagens antigas
+                    docker image prune -f
+                """
             }
         }
     }
 
     post {
-        success {
-            echo '✅ Build e testes passaram!'
-        }
-        failure {
-            echo '❌ Falha no build ou testes!'
-        }
-        always {
-            cleanWs()
-        }
+        success { echo '✅ Deploy realizado com sucesso!' }
+        failure { echo '❌ Falha no pipeline!' }
+        always { cleanWs() }
     }
 }
