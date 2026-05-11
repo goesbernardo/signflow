@@ -3,6 +3,9 @@
 # Ativado com: SPRING_PROFILES_ACTIVE=prod
 # ================================================================
 
+server:
+  port: ${SERVER_PORT:8081}
+
 signflow:
   encryption:
     key: ${SIGNFLOW_ENCRYPTION_KEY}
@@ -90,7 +93,7 @@ springdoc:
     path: /api-docs
 
 swagger:
-  server-url: ${SWAGGER_SERVER_URL}
+  server-url: ${SWAGGER_SERVER_URL:https://signflow-lysg.onrender.com}
 
 logging:
   pattern:
