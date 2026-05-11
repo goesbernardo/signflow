@@ -11,7 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.signflow.infrastructure.persistence.repository.UserRepository;
 
 @Configuration
-@Profile({"local", "dev"})
+@Profile({"local", "dev", "prod"})
 @RequiredArgsConstructor
 public class DataInitializer {
 

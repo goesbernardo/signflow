@@ -74,6 +74,27 @@ Os `Commands` usam enums neutros — `SignatureAuthMethod`, `SignerRole`, `Notif
 
 ---
 
+## Design Patterns & SOLID
+
+O projeto foi construído focando em manutenibilidade e extensibilidade, utilizando padrões consagrados:
+
+### SOLID
+- **S - Single Responsibility Principle**: Cada serviço (ex: `AuditLogService`, `OutboundWebhookService`) possui uma única responsabilidade clara.
+- **O - Open/Closed Principle**: Novos provedores de assinatura podem ser adicionados sem alterar o código core do sistema, apenas implementando a interface `ESignatureGateway`.
+- **L - Liskov Substitution Principle**: Todas as implementações de `ESignatureGateway` (ex: `ClickSignGateway`) podem ser substituídas sem quebrar o `SignatureServiceImpl`.
+- **I - Interface Segregation Principle**: Interfaces granulares para entrada (`SignatureService`) e saída (`ESignatureGateway`).
+- **D - Dependency Inversion Principle**: O core do negócio depende de abstrações (`Ports`), não de implementações concretas (`Adapters`).
+
+### Design Patterns
+- **Strategy**: Utilizado no roteamento inteligente (`SmartRoutingService`) e na seleção de gateways para diferentes provedores.
+- **Adapter**: A infraestrutura de cada provider adapta a API externa para o formato neutro do SignFlow.
+- **Factory / Registry**: `SignatureGatewayRegistry` centraliza e fornece a instância correta do gateway baseado no provider selecionado.
+- **Observer (Event-Driven)**: Utilização de Kafka para desacoplar o recebimento de webhooks do seu processamento e da notificação de saída.
+- **Template Method**: Padronização do fluxo de processamento de eventos de webhook.
+- **DTO (Data Transfer Object)**: Uso extensivo para trafegar dados entre camadas sem expor entidades JPA.
+
+---
+
 ## Stack Tecnológica
 
 | Camada | Tecnologia |
@@ -168,6 +189,24 @@ docker-compose up -d
 ```
 
 A aplicação estará disponível em `http://localhost:8080`.
+
+---
+
+### Executando em Produção com Docker
+
+Para rodar em um ambiente de produção (servidor próprio ou VPS):
+
+```bash
+# Inicie os serviços em modo background (certifique-se que as vars de ambiente estão setadas)
+docker-compose -f docker-compose.prod.yaml up -d
+```
+
+O `docker-compose.prod.yaml` inclui:
+- **Aplicação**: Imagem buildada localmente, rodando com perfil `prod` e healthcheck configurado.
+- **Banco de Dados**: PostgreSQL 16 (Alpine) com persistência em volume e healthcheck.
+- **Rede Isolada**: O banco de dados não expõe portas para o host, apenas para a aplicação.
+
+> Nota: O Kafka é esperado via variáveis de ambiente (ex: Upstash) para maior resiliência em produção.
 
 ---
 

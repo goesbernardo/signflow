@@ -1,6 +1,7 @@
 signflow:
   encryption:
-    key: ${SIGNFLOW_ENCRYPTION_KEY:}
+    # Fallback apenas para desenvolvimento local. 
+    key: ${SIGNFLOW_ENCRYPTION_KEY:dev-encryption-key-32-chars-long}
   providers:
     clicksign:
       enabled: true
@@ -49,7 +50,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -88,7 +89,9 @@ resilience4j:
 
 security:
   jwt:
-    secret: ${JWT_SECRET:}
+    # segredo de fallback para desenvolvimento (HS512 exige ≥ 512 bits / 64 chars)
+    # Em produção (application-prod.yml), a variável JWT_SECRET é OBRIGATÓRIA e sem fallback.
+    secret: ${JWT_SECRET:43e5624f-84fa-4c72-b3c7-03202c34f8c6}
     expiration: 86400000 # 24 hours
 
 management:
