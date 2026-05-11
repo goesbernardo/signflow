@@ -26,7 +26,7 @@ public class OutboundWebhookDeliveryEntity {
     @Column(nullable = false, length = 500)
     private String url;
 
-    @Lob
+
     @Column(nullable = false)
     private String payload;
 
