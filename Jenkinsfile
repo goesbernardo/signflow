@@ -41,6 +41,17 @@ pipeline {
                 """
             }
         }
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.GIT_COMMIT_MSG = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    env.GIT_AUTHOR = sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
+                }
+                echo "Commit: ${env.GIT_COMMIT_MSG}"
+                echo "Author: ${env.GIT_AUTHOR}"
+            }
+        }
 
         stage('Deploy') {
             when { branch 'master' }

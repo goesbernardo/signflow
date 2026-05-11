@@ -76,8 +76,8 @@ management:
       show-details: when-authorized
 
 # ── Swagger habilitado em produção com acesso controlado ─────────
-# Acesse: https://signflow-lysg.onrender.com/swagger-ui.html
-# JSON:   https://signflow-lysg.onrender.com/api-docs
+# Acesse: https://signflow.api.br/swagger-ui.html
+# JSON:   https://signflow.api.br/api-docs
 springdoc:
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:true}
@@ -95,7 +95,7 @@ springdoc:
     path: /api-docs
 
 swagger:
-  server-url: ${SWAGGER_SERVER_URL:https://signflow-lysg.onrender.com}
+  server-url: ${SWAGGER_SERVER_URL:https://signflow.api.br}
 
 logging:
   pattern:

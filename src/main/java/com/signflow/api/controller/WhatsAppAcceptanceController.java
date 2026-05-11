@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/whatsapp")
+@RequestMapping("/v1/whatsapp")
 @RequiredArgsConstructor
 @Tag(name = "Aceite via WhatsApp", description = "Criação de aceites via WhatsApp na ClickSign")
 public class WhatsAppAcceptanceController {

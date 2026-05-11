@@ -23,14 +23,14 @@ import java.util.List;
  * <p>
  * URLs de acesso:
  *   Local: <a href="http://localhost:8080/swagger-ui.html">...</a>
- *   Produção: <a href="https://signflow-lysg.onrender.com/swagger-ui.html">...</a>
+ *   Produção: <a href="https://signflow.api.br/swagger-ui.html">...</a>
  * <p>
  * JSON da spec:
  *   Local: <a href="http://localhost:8080/api-docs">...</a>
- *   Produção: <a href="https://signflow-lysg.onrender.com/api-docs">...</a>
+ *   Produção: <a href="https://signflow.api.br/api-docs">...</a>
  * <p>
  * Para habilitar/desabilitar em produção:
- *   Variável SWAGGER_ENABLED=true|false no Render
+ *   Variável SWAGGER_ENABLED=true|false na AWS
  *   Default: true (visível para onboarding e integração)
  */
 @Configuration
@@ -73,7 +73,7 @@ public class OpenApiConfig {
                         ### Autenticação
                         Todas as rotas (exceto `/auth/login` e `/webhook/**`) exigem JWT Bearer Token.
                         
-                        1. Faça `POST /api/v1/auth/login` com `username` e `password`
+                        1. Faça `POST /v1/auth/login` com `username` e `password`
                         2. Copie o token retornado
                         3. Clique em **Authorize** e cole: `Bearer {token}`
                         
@@ -101,7 +101,7 @@ public class OpenApiConfig {
                 .type(SecurityScheme.Type.HTTP)
                 .scheme("bearer")
                 .bearerFormat("JWT")
-                .description("JWT obtido via POST /api/v1/auth/login");
+                .description("JWT obtido via POST /v1/auth/login");
     }
 
     private List<Tag> buildTags() {

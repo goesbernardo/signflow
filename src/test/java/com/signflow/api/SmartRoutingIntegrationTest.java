@@ -52,7 +52,7 @@ public class SmartRoutingIntegrationTest {
     void shouldAllowRequestWithoutProviderHeader() throws Exception {
         String externalId = "env_123";
 
-        mockMvc.perform(get("/api/v1/signatures/{externalId}", externalId)
+        mockMvc.perform(get("/v1/signatures/{externalId}", externalId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
@@ -72,7 +72,7 @@ public class SmartRoutingIntegrationTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
+        mockMvc.perform(post("/v1/signatures/create-activate-envelope")
                         .content(json)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated());
@@ -86,7 +86,7 @@ public class SmartRoutingIntegrationTest {
         String externalId = "env_123";
         ProviderSignature provider = ProviderSignature.DOCUSIGN;
 
-        mockMvc.perform(get("/api/v1/signatures/{externalId}", externalId)
+        mockMvc.perform(get("/v1/signatures/{externalId}", externalId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
