@@ -24,6 +24,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -79,12 +80,15 @@ public class IntegrationExceptionHandlerTest {
         String externalId = "env_123";
         ProviderSignature provider = ProviderSignature.CLICKSIGN;
 
+        when(messageSource.getMessage(eq("error.internal_server_error_message"), any(), any()))
+                .thenReturn("Ocorreu um erro interno inesperado. Por favor, tente novamente mais tarde.");
+
         doThrow(new RuntimeException("Crash!")).when(signatureService).activateEnvelope(eq(externalId), eq(provider));
 
         mockMvc.perform(post("/api/v1/signatures/{externalId}/activate", externalId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.message").value("Ocorreu um erro interno inesperado"));
+                .andExpect(jsonPath("$.message").value("Ocorreu um erro interno inesperado. Por favor, tente novamente mais tarde."));
     }
 }

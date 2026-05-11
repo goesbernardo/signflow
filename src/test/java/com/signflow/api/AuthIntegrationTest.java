@@ -69,6 +69,8 @@
 //        mockMvc.perform(post("/api/v1/auth/login")
 //                        .contentType(MediaType.APPLICATION_JSON)
 //                        .content(objectMapper.writeValueAsString(loginRequest)))
-//                .andExpect(status().isInternalServerError());
+//                .andExpect(status().isUnauthorized())
+//                .andExpect(jsonPath("$.error").exists())
+//                .andExpect(jsonPath("$.message").exists());
 //    }
 //}

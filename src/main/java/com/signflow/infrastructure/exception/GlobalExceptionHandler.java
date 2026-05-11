@@ -14,6 +14,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,6 +34,7 @@ public class GlobalExceptionHandler {
                 .map(error -> ErroDetail.builder()
                         .field(error.getField())
                         .message(error.getDefaultMessage())
+                        .code("INVALID_FIELD")
                         .build())
                 .collect(Collectors.toList());
 
@@ -57,6 +61,7 @@ public class GlobalExceptionHandler {
                 .error(getMessage("error.invalid_request"))
                 .message(message)
                 .path(request.getRequestURI())
+                .details(List.of(ErroDetail.builder().message(message).build()))
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
@@ -94,6 +99,7 @@ public class GlobalExceptionHandler {
                 .error(status.getReasonPhrase())
                 .message(ex.getMessage())
                 .path(request.getRequestURI())
+                .details(List.of(ErroDetail.builder().message(ex.getMessage()).code(ex.getErrorCode().name()).build()))
                 .build();
 
         return ResponseEntity.status(status).body(errorResponse);
@@ -112,6 +118,66 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
     }
 
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex, HttpServletRequest request) {
+        log.warn("Falha na autenticação: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.UNAUTHORIZED.value())
+                .error(getMessage("error.bad_credentials"))
+                .message(getMessage("error.bad_credentials_message"))
+                .path(request.getRequestURI())
+                .details(List.of(ErroDetail.builder()
+                        .field("credentials")
+                        .message(ex.getMessage())
+                        .code("BAD_CREDENTIALS")
+                        .build()))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Acesso negado: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .error(getMessage("error.access_denied"))
+                .message(getMessage("error.access_denied_message"))
+                .path(request.getRequestURI())
+                .details(List.of(ErroDetail.builder()
+                        .field("access")
+                        .message(ex.getMessage())
+                        .code("ACCESS_DENIED")
+                        .build()))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex, HttpServletRequest request) {
+        log.warn("Erro de autenticação: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.UNAUTHORIZED.value())
+                .error(getMessage("error.unauthorized"))
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .details(List.of(ErroDetail.builder()
+                        .field("auth")
+                        .message(ex.getMessage())
+                        .code("UNAUTHORIZED")
+                        .build()))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
         log.error("Erro inesperado: ", ex);
@@ -119,9 +185,10 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                .message("Ocorreu um erro interno inesperado")
+                .error(getMessage("error.internal_server_error"))
+                .message(getMessage("error.internal_server_error_message"))
                 .path(request.getRequestURI())
+                .details(List.of(ErroDetail.builder().message(ex.getMessage()).build()))
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
