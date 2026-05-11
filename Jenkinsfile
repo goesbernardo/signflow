@@ -84,10 +84,10 @@ pipeline {
             }
         }
 
-        // ── Deploy Render (somente branch main) ───────────────────
+        // ── Deploy Render (somente branch master) ───────────────────
         stage('Deploy Render') {
             when {
-                branch 'main'
+                branch 'master'
             }
             steps {
                 withCredentials([string(
