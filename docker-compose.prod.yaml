@@ -1,84 +1,55 @@
+version: '3.8'
+
 services:
 
-  db:
-    image: postgres:16-alpine
+  signflow-db:
+
+    image: postgres:16
+
     container_name: signflow-db
-    restart: unless-stopped
+
+    restart: always
+
     environment:
-      POSTGRES_DB:       ${POSTGRES_DB:-signflow}
-      POSTGRES_USER:     ${POSTGRES_USER:-signflow_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: signflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5432:5432"
+
     volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-signflow_user} -d ${POSTGRES_DB:-signflow}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    # Porta NÃO exposta externamente em produção — só acessível internamente
-    networks:
-      - signflow-net
+      - postgres_data:/var/lib/postgresql/data
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: signflow:latest
+
+    build: .
+
     container_name: signflow-app
-    restart: unless-stopped
+
+    restart: always
+
     depends_on:
-      db:
-        condition: service_healthy
+      - signflow-db
+
     environment:
-      # ── Banco de dados ────────────────────────────────────────
-      SPRING_DATASOURCE_URL:      jdbc:postgresql://db:5432/${POSTGRES_DB:-signflow}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-signflow_user}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
 
-      # ── Kafka ─────────────────────────────────────────────────
-      KAFKA_BOOTSTRAP_SERVERS:  ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_API_KEY:            ${KAFKA_API_KEY}
-      KAFKA_API_SECRET:         ${KAFKA_API_SECRET}
-
-      # ── Security ──────────────────────────────────────────────
-      # Gere com: openssl rand -hex 64
-      JWT_SECRET:               ${JWT_SECRET}
-      # Gere com: openssl rand -base64 32
-      SIGNFLOW_ENCRYPTION_KEY:  ${SIGNFLOW_ENCRYPTION_KEY}
-
-      # ── ClickSign ─────────────────────────────────────────────
-      CLICKSIGN_URL:            ${CLICKSIGN_URL:-https://api.clicksign.com/api/v1}
-      CLICKSIGN_API_TOKEN:      ${CLICKSIGN_API_TOKEN}
-      CLICKSIGN_WEBHOOK_SECRET: ${CLICKSIGN_WEBHOOK_SECRET}
-
-      # ── Profile ───────────────────────────────────────────────
       SPRING_PROFILES_ACTIVE: prod
 
-      # ── Performance ───────────────────────────────────────────
-      JAVA_OPTS: >-
-        -XX:+UseContainerSupport
-        -XX:MaxRAMPercentage=75.0
-        -XX:+UseG1GC
-        -Djava.security.egd=file:/dev/./urandom
+      SERVER_PORT: 8081
 
-      # ── Spring Cloud (desabilitar discovery para reduzir startup) ──
-      SPRING_CLOUD_DISCOVERY_ENABLED: "false"
-      EUREKA_CLIENT_ENABLED:          "false"
+      JWT_SECRET: signflow-secret
+
+      SIGNFLOW_ENCRYPTION_KEY: signflow-encryption-key
+
+      CLICKSIGN_URL: https://sandbox.clicksign.com
+
+      CLICKSIGN_API_TOKEN: test-token
+
+      CLICKSIGN_WEBHOOK_SECRET: webhook-secret
+
     ports:
-      - "8080:8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 90s    # aguarda Flyway rodar as migrations
-    networks:
-      - signflow-net
-
-networks:
-  signflow-net:
-    driver: bridge
+      - "8081:8081"
 
 volumes:
-  db_data:
+  postgres_data:
