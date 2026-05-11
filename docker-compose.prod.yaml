@@ -48,6 +48,8 @@ services:
 
       CLICKSIGN_WEBHOOK_SECRET: webhook-secret
 
+      SPRING_DATASOURCE_URL: jdbc:postgresql://signflow-db:5432/signflow
+
     ports:
       - "8081:8081"
 
