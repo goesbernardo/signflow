@@ -18,7 +18,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo "Build: #${BUILD_NUMBER}"
+                echo "Build: #${BUILD_NUMBER} | Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'desconhecido'}"
             }
         }
 
@@ -60,8 +60,6 @@ pipeline {
         }
 
         // ── Docker Push ───────────────────────────────────────────
-        // --password-stdin nao suportado no Docker 17.05
-        // Usando docker login com -p diretamente
         stage('Docker Push') {
             steps {
                 withCredentials([usernamePassword(
@@ -84,11 +82,10 @@ pipeline {
             }
         }
 
-        // ── Deploy Render (somente branch master) ───────────────────
+        // ── Deploy Render ─────────────────────────────────────────
+        // Executa sempre — pipeline simples nao popula BRANCH_NAME
+        // Para restringir ao master, converter para Multibranch Pipeline
         stage('Deploy Render') {
-            when {
-                branch 'master'
-            }
             steps {
                 withCredentials([string(
                     credentialsId: 'render-deploy-hook-url',
