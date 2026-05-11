@@ -27,7 +27,7 @@ public class OutboundWebhookDeliveryEntity {
     private String url;
 
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String payload;
 
     @Enumerated(EnumType.STRING)
