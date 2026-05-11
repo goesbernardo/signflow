@@ -43,7 +43,7 @@ pipeline {
         }
 
         stage('Deploy') {
-            when { branch 'main' }
+            when { branch 'master' }
             steps {
                 sh """
                     docker stop ${CONTAINER_NAME} || true
