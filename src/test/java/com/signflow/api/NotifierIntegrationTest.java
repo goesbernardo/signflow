@@ -58,7 +58,7 @@ public class NotifierIntegrationTest {
                 .name("Observer Test")
                 .build();
 
-        mockMvc.perform(post("/api/v1/signatures/{envelopeId}/notifiers", envelopeId)
+        mockMvc.perform(post("/v1/signatures/{envelopeId}/notifiers", envelopeId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(command)))

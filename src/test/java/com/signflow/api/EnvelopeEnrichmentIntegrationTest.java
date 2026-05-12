@@ -79,7 +79,7 @@ public class EnvelopeEnrichmentIntegrationTest {
         when(signatureService.getEnvelope(eq(externalId), eq(provider), eq(true)))
                 .thenReturn(envelope);
 
-        mockMvc.perform(get("/api/v1/signatures/{externalId}", externalId)
+        mockMvc.perform(get("/v1/signatures/{externalId}", externalId)
                         .header("provider", provider.name())
                         .param("includeSigners", "true")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -111,7 +111,7 @@ public class EnvelopeEnrichmentIntegrationTest {
         when(signatureService.listEnvelopes(any(), any(Pageable.class), eq(true)))
                 .thenReturn(page);
 
-        mockMvc.perform(get("/api/v1/signatures")
+        mockMvc.perform(get("/v1/signatures")
                         .param("includeSigners", "true")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())

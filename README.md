@@ -129,7 +129,7 @@ O projeto foi construído focando em manutenibilidade e extensibilidade, utiliza
 
 A documentação interativa completa está disponível via **Swagger UI**:
 - Local: `http://localhost:8080/swagger-ui.html`
-- Produção: `https://signflow-lysg.onrender.com/swagger-ui.html`
+- Produção: `https://signflow.api.br/swagger-ui.html`
 
 ---
 
@@ -171,7 +171,7 @@ KAFKA_API_KEY=
 KAFKA_API_SECRET=
 
 # Swagger
-SWAGGER_SERVER_URL=http://localhost:8080
+SWAGGER_SERVER_URL=https://signflow.api.br
 ```
 
 ### Executando localmente
@@ -192,9 +192,9 @@ A aplicação estará disponível em `http://localhost:8080`.
 
 ---
 
-### Executando em Produção com Docker
+### Executando em Produção na AWS (Docker)
 
-Para rodar em um ambiente de produção (servidor próprio ou VPS):
+Para rodar em um ambiente de produção na AWS (EC2 ou ECS):
 
 ```bash
 # Inicie os serviços em modo background (certifique-se que as vars de ambiente estão setadas)
@@ -202,11 +202,11 @@ docker-compose -f docker-compose.prod.yaml up -d
 ```
 
 O `docker-compose.prod.yaml` inclui:
-- **Aplicação**: Imagem buildada localmente, rodando com perfil `prod` e healthcheck configurado.
-- **Banco de Dados**: PostgreSQL 16 (Alpine) com persistência em volume e healthcheck.
+- **Aplicação**: Imagem buildada localmente (ou via CI/CD AWS), rodando com perfil `prod` e healthcheck configurado.
+- **Banco de Dados**: PostgreSQL 16 (Alpine) com persistência em volume EBS/RDS e healthcheck.
 - **Rede Isolada**: O banco de dados não expõe portas para o host, apenas para a aplicação.
 
-> Nota: O Kafka é esperado via variáveis de ambiente (ex: Upstash) para maior resiliência em produção.
+> Nota: O Kafka é esperado via variáveis de ambiente (ex: Upstash ou AWS MSK) para maior resiliência em produção.
 
 ---
 
@@ -215,7 +215,7 @@ O `docker-compose.prod.yaml` inclui:
 ### Criar envelope completo em uma chamada
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/signatures/create-activate-envelope \
+curl -X POST http://localhost:8080/v1/signatures/create-activate-envelope \
   -H "Authorization: Bearer {token}" \
   -H "Content-Type: application/json" \
   -H "provider: CLICKSIGN" \
@@ -249,11 +249,11 @@ Configure regras para que o SignFlow selecione o provider automaticamente:
 
 ```bash
 # Sempre usar ClickSign
-POST /api/v1/routing-rules
+POST /v1/routing-rules
 { "priority": 1, "conditionType": "ALWAYS", "provider": "CLICKSIGN", "active": true }
 
 # Usar D4Sign quando auth for PIX
-POST /api/v1/routing-rules
+POST /v1/routing-rules
 { "priority": 2, "conditionType": "AUTH_METHOD", "conditionValue": "PIX", "provider": "D4SIGN", "active": true }
 ```
 
@@ -296,7 +296,7 @@ O sistema tenta a entrega até 3 vezes com backoff progressivo (0s → 60s → 6
 | Requisito | Implementação |
 |---|---|
 | Proteção de dados em repouso | AES/GCM nos dados do signatário |
-| Direito ao esquecimento | `DELETE /api/v1/users/me` — soft delete + anonimização |
+| Direito ao esquecimento | `DELETE /v1/users/me` — soft delete + anonimização |
 | Registro de consentimento | Campo `consent_at` na tabela `users` |
 | Rastreabilidade | `audit_log` com userId, action, resourceType, IP e User-Agent |
 | Portabilidade | Timeline completa de eventos por envelope |

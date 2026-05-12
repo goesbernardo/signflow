@@ -32,8 +32,8 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler      accessDeniedHandler;
 
     private static final String[] PUBLIC_PATHS = {
-            "/api/v1/auth/**",
-            "/api/v1/webhook/**",
+            "/v1/auth/**",
+            "/v1/webhook/**",
             "/api-docs/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",

@@ -61,7 +61,7 @@ public class SignatureParseErrorIntegrationTest {
 
         when(messageSource.getMessage(any(), any(), any())).thenReturn("Requisição inválida");
 
-        mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
+        mockMvc.perform(post("/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
@@ -91,7 +91,7 @@ public class SignatureParseErrorIntegrationTest {
         // Precisamos mockar o service para não dar erro de lógica interna se o parse passar
         when(signatureService.createFullEnvelope(any(), any())).thenReturn(com.signflow.domain.model.Envelope.builder().build());
 
-        mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
+        mockMvc.perform(post("/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonWithEmptyAuth))

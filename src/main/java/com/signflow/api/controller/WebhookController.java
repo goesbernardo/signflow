@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/webhook")
+@RequestMapping("/v1/webhook")
 @Tag(name = "Webhook Management", description = "Endpoints for managing webhooks")
 public class WebhookController {
 

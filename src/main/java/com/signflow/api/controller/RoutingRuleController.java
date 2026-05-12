@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/v1/routing-rules")
+@RequestMapping("v1/routing-rules")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Smart Routing Rules", description = "Gerenciamento de regras de roteamento inteligente de provedores")

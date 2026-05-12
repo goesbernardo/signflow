@@ -49,7 +49,7 @@
 //                }
 //                """;
 //
-//        mockMvc.perform(post("/api/v1/webhook/clicksign")
+//        mockMvc.perform(post("/v1/webhook/clicksign")
 //                        .contentType(MediaType.APPLICATION_JSON)
 //                        .content(validPayload)
 //                        .header("X-Clicksign-Hmac-Sha256", "some-hmac"))
@@ -58,7 +58,7 @@
 //
 //    @Test
 //    void shouldDenyProtectedPathWithoutAuthentication() throws Exception {
-//        mockMvc.perform(post("/api/v1/signatures")
+//        mockMvc.perform(post("/v1/signatures")
 //                        .contentType(MediaType.APPLICATION_JSON)
 //                        .content("{}"))
 //                .andExpect(status().isUnauthorized());

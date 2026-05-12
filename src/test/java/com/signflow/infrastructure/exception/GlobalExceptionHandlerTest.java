@@ -80,7 +80,7 @@ public class GlobalExceptionHandlerTest {
         doThrow(new DomainException(errorCode, "Mensagem de erro"))
                 .when(signatureService).activateEnvelope(eq(externalId), eq(ProviderSignature.CLICKSIGN));
 
-        mockMvc.perform(post("/api/v1/signatures/{externalId}/activate", externalId)
+        mockMvc.perform(post("/v1/signatures/{externalId}/activate", externalId)
                         .header("provider", "CLICKSIGN")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().is(expectedStatus))
@@ -101,7 +101,7 @@ public class GlobalExceptionHandlerTest {
 
         String loginJson = "{\"username\":\"admin\", \"password\":\"wrong\"}";
 
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(post("/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson))
                 .andExpect(status().isUnauthorized())
@@ -121,7 +121,7 @@ public class GlobalExceptionHandlerTest {
         when(messageSource.getMessage(eq("error.access_denied"), any(), any()))
                 .thenReturn("Acesso negado");
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/users/me"))
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/v1/users/me"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("Acesso negado"))
                 .andExpect(jsonPath("$.details[0].field").value("access"))
@@ -138,7 +138,7 @@ public class GlobalExceptionHandlerTest {
         when(messageSource.getMessage(eq("error.internal_server_error"), any(), any()))
                 .thenReturn("Erro interno");
 
-        mockMvc.perform(get("/api/v1/signatures/123/documents")
+        mockMvc.perform(get("/v1/signatures/123/documents")
                         .header("provider", "CLICKSIGN"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.details[0].message").value("Unexpected error"));

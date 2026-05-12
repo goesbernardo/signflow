@@ -53,7 +53,7 @@ public class SignatureRemindIntegrationTest {
         String signerId = "signer_123";
         ProviderSignature provider = ProviderSignature.CLICKSIGN;
 
-        mockMvc.perform(post("/api/v1/signatures/{envelopeId}/signers/{signerId}/remind", envelopeId, signerId)
+        mockMvc.perform(post("/v1/signatures/{envelopeId}/signers/{signerId}/remind", envelopeId, signerId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
@@ -75,7 +75,7 @@ public class SignatureRemindIntegrationTest {
         doThrow(new DomainException(DomainErrorCode.REMINDER_RATE_LIMIT, "Um lembrete já foi enviado na última hora para este signatário"))
                 .when(signatureService).remindSigner(envelopeId, signerId, provider);
 
-        mockMvc.perform(post("/api/v1/signatures/{envelopeId}/signers/{signerId}/remind", envelopeId, signerId)
+        mockMvc.perform(post("/v1/signatures/{envelopeId}/signers/{signerId}/remind", envelopeId, signerId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isTooManyRequests());

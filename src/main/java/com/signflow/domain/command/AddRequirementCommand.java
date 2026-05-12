@@ -17,7 +17,7 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  *  1. Qualificação: role (define o papel — SignerRole)
  *  2. Autenticacao: auth (define como autentica — SignatureAuthMethod)
  * <p>
- * O endpoint POST /api/v1/signatures/{id}/activate cria os dois
+ * O endpoint POST /v1/signatures/{id}/activate cria os dois
  * automaticamente usando os defaults (SIGN + EMAIL) quando não informados.
  * <p>
  * rubricPages era um campo específico da ClickSign e foi removido do domínio.

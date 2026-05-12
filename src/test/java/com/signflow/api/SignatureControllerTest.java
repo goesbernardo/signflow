@@ -78,7 +78,7 @@ public class SignatureControllerTest {
         when(signatureService.createFullEnvelope(any(CreateFullEnvelopeCommand.class), eq(ProviderSignature.CLICKSIGN)))
                 .thenReturn(mockResponse);
 
-        mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
+        mockMvc.perform(post("/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(command)))

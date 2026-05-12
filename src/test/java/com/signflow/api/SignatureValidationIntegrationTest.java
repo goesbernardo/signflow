@@ -69,7 +69,7 @@ public class SignatureValidationIntegrationTest {
 
         when(messageSource.getMessage(any(), any(), any())).thenReturn("Requisição inválida");
 
-        mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
+        mockMvc.perform(post("/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidPhoneNumberJson))
@@ -98,7 +98,7 @@ public class SignatureValidationIntegrationTest {
 
         when(messageSource.getMessage(any(), any(), any())).thenReturn("Requisição inválida");
 
-        mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
+        mockMvc.perform(post("/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidPhoneNumberJson))
@@ -126,7 +126,7 @@ public class SignatureValidationIntegrationTest {
 
         when(signatureService.createFullEnvelope(any(), any())).thenReturn(com.signflow.domain.model.Envelope.builder().build());
 
-        mockMvc.perform(post("/api/v1/signatures/create-activate-envelope")
+        mockMvc.perform(post("/v1/signatures/create-activate-envelope")
                         .header("provider", "CLICKSIGN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validPhoneNumberJson))

@@ -52,7 +52,7 @@ public class SignatureActivationIntegrationTest {
         String externalId = "env_123";
         ProviderSignature provider = ProviderSignature.CLICKSIGN;
 
-        mockMvc.perform(post("/api/v1/signatures/{externalId}/activate", externalId)
+        mockMvc.perform(post("/v1/signatures/{externalId}/activate", externalId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
@@ -69,7 +69,7 @@ public class SignatureActivationIntegrationTest {
         doThrow(new DomainException(DomainErrorCode.INVALID_ENVELOPE_STATUS, "Somente envelopes em rascunho (DRAFT) podem ser ativados."))
                 .when(signatureService).activateEnvelope(externalId, provider);
 
-        mockMvc.perform(post("/api/v1/signatures/{externalId}/activate", externalId)
+        mockMvc.perform(post("/v1/signatures/{externalId}/activate", externalId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isConflict());

@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/v1/signatures")
+@RequestMapping("v1/signatures")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Assinaturas", description = "APIs de integração com provedores de assinatura")

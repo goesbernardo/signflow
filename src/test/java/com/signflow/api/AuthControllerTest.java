@@ -64,7 +64,7 @@
 //        when(userDetailsService.loadUserByUsername("admin")).thenReturn(userDetails);
 //        when(jwtUtils.generateToken(any())).thenReturn("mocked-jwt-token");
 //
-//        mockMvc.perform(post("/api/v1/auth/login")
+//        mockMvc.perform(post("/v1/auth/login")
 //                        .with(csrf())
 //                        .contentType(MediaType.APPLICATION_JSON)
 //                        .content(objectMapper.writeValueAsString(loginRequest)))

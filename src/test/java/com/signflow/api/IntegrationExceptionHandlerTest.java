@@ -64,7 +64,7 @@ public class IntegrationExceptionHandlerTest {
 
         doThrow(integrationEx).when(signatureService).activateEnvelope(eq(externalId), eq(provider));
 
-        mockMvc.perform(post("/api/v1/signatures/{externalId}/activate", externalId)
+        mockMvc.perform(post("/v1/signatures/{externalId}/activate", externalId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadGateway())
@@ -85,7 +85,7 @@ public class IntegrationExceptionHandlerTest {
 
         doThrow(new RuntimeException("Crash!")).when(signatureService).activateEnvelope(eq(externalId), eq(provider));
 
-        mockMvc.perform(post("/api/v1/signatures/{externalId}/activate", externalId)
+        mockMvc.perform(post("/v1/signatures/{externalId}/activate", externalId)
                         .header("provider", provider.name())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())
