@@ -4,13 +4,14 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.signflow.infrastructure.provider.docusign.docusign_exception.DocuSignErrorDecoder;
+import com.signflow.infrastructure.provider.docusign.security.DocuSignTokenService;
 import feign.Logger;
 import feign.RequestInterceptor;
 import feign.codec.Decoder;
 import feign.codec.ErrorDecoder;
 import feign.optionals.OptionalDecoder;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
 import org.springframework.cloud.openfeign.support.ResponseEntityDecoder;
 import org.springframework.cloud.openfeign.support.SpringDecoder;
@@ -26,16 +27,14 @@ import java.util.concurrent.TimeUnit;
  * Não anotada com @Configuration para evitar registro global dos beans —
  * é referenciada apenas via @FeignClient(configuration = DocuSignFeignConfig.class).
  *
- * Autenticação: Bearer token (OAuth2 Access Token).
- * Para produção, implemente DocuSignTokenService com JWT Bearer Grant
- * (RSA private key) conforme documentação DocuSign:
- * https://developers.docusign.com/platform/auth/jwt-get-token/
+ * Autenticação: OAuth2 JWT Bearer Grant (RFC 7523) via DocuSignTokenService.
+ * Fallback: access-token estático se private-key não estiver configurada.
  */
 @Slf4j
 public class DocuSignFeignConfig {
 
-    @Value("${signflow.providers.docusign.access-token:}")
-    private String accessToken;
+    @Autowired
+    private DocuSignTokenService tokenService;
 
     @Bean
     public feign.Client docuSignFeignClient() {
@@ -50,7 +49,8 @@ public class DocuSignFeignConfig {
     @Bean
     public RequestInterceptor docuSignRequestInterceptor() {
         return requestTemplate -> {
-            requestTemplate.header("Authorization", "Bearer " + accessToken);
+            String token = tokenService.getAccessToken();
+            requestTemplate.header("Authorization", "Bearer " + token);
             requestTemplate.header("Content-Type", MediaType.APPLICATION_JSON_VALUE);
             requestTemplate.header("Accept", MediaType.APPLICATION_JSON_VALUE);
         };

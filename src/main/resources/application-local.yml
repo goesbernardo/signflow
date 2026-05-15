@@ -10,10 +10,19 @@ signflow:
       token: ${CLICKSIGN_API_TOKEN:43e5624f-84fa-4c72-b3c7-03202c34f8c6}
       webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET:webhook-secret}
     docusign:
-      enabled: ${DOCUSIGN_ENABLED:false}
-      base-url: ${DOCUSIGN_BASE_URL:https://demo.docusign.net/restapi/v2.1/accounts/${DOCUSIGN_ACCOUNT_ID:demo-account-id}}
-      access-token: ${DOCUSIGN_ACCESS_TOKEN:demo-access-token}
+      enabled: ${DOCUSIGN_ENABLED:true}
+      base-url: ${DOCUSIGN_BASE_URL:https://na3.docusign.net/restapi/v2.1/accounts/289b0f47-b17d-4603-b7c0-08d98ea70129}
+      access-token: ${DOCUSIGN_ACCESS_TOKEN:}
       webhook-secret: ${DOCUSIGN_WEBHOOK_SECRET:docusign-webhook-secret}
+      integration-key: ${DOCUSIGN_INTEGRATION_KEY:4d14b56a-728a-4b2e-a06c-ba2f11a0f8f0}
+      secret-key: ${DOCUSIGN_SECRET_KEY:2c5bc438-f881-4bea-9552-7dc0f2e89642}
+      user-id: ${DOCUSIGN_USER_ID:c4fb9871-a13c-4ef0-874d-4048353471fc}
+      account-id: ${DOCUSIGN_ACCOUNT_ID:289b0f47-b17d-4603-b7c0-08d98ea70129}
+      keypair-id: ${DOCUSIGN_KEYPAIR_ID:81f4ce10-78fa-4f70-a657-2baf6a613fbf}
+      auth-server: ${DOCUSIGN_AUTH_SERVER:https://account.docusign.com}
+      # RSA private key PEM (PKCS#8). Gere via: openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt
+      # Registre a public key no painel DocuSign: Apps and Keys → Add RSA Keypair
+      private-key: ${DOCUSIGN_PRIVATE_KEY:}
 
 server:
   forward-headers-strategy: framework

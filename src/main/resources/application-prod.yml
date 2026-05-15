@@ -21,8 +21,15 @@ signflow:
     docusign:
       enabled: ${DOCUSIGN_ENABLED:false}
       base-url: ${DOCUSIGN_BASE_URL}
-      access-token: ${DOCUSIGN_ACCESS_TOKEN}
+      access-token: ${DOCUSIGN_ACCESS_TOKEN:}
       webhook-secret: ${DOCUSIGN_WEBHOOK_SECRET}
+      integration-key: ${DOCUSIGN_INTEGRATION_KEY:}
+      secret-key: ${DOCUSIGN_SECRET_KEY:}
+      user-id: ${DOCUSIGN_USER_ID:}
+      account-id: ${DOCUSIGN_ACCOUNT_ID:}
+      keypair-id: ${DOCUSIGN_KEYPAIR_ID:}
+      auth-server: ${DOCUSIGN_AUTH_SERVER:https://account.docusign.com}
+      private-key: ${DOCUSIGN_PRIVATE_KEY:}
 
 spring:
   datasource:
