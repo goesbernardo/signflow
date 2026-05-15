@@ -1,26 +1,35 @@
 # ================================================================
 # SignFlow — application-prod.yml
 # Ativado com: SPRING_PROFILES_ACTIVE=prod
+# Todas as variáveis sem fallback são OBRIGATÓRIAS via docker-compose.prod.yml
 # ================================================================
 
 server:
   port: ${SERVER_PORT:8081}
+  forward-headers-strategy: framework
 
 signflow:
   encryption:
     key: ${SIGNFLOW_ENCRYPTION_KEY}
+  default-provider: ${SIGNFLOW_DEFAULT_PROVIDER:CLICKSIGN}
   providers:
     clicksign:
       enabled: true
       base-url: ${CLICKSIGN_URL:https://sandbox.clicksign.com/api/v3}
-      token: ${CLICKSIGN_API_TOKEN:43e5624f-84fa-4c72-b3c7-03202c34f8c6}
+      token: ${CLICKSIGN_API_TOKEN}
       webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET}
+    docusign:
+      enabled: ${DOCUSIGN_ENABLED:false}
+      base-url: ${DOCUSIGN_BASE_URL}
+      access-token: ${DOCUSIGN_ACCESS_TOKEN}
+      webhook-secret: ${DOCUSIGN_WEBHOOK_SECRET}
 
 spring:
   datasource:
-    url: postgresql://signflow-db:5432/signflow
-    username: postgres
-    password: postgres
+    # CORRIGIDO: adicionado prefixo jdbc: que estava faltando
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://signflow-db:5432/signflow}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -46,25 +55,76 @@ spring:
     clean-on-validation-error: false
     clean-disabled: true
 
+  mail:
+    # ADICIONADO: configuração de e-mail que estava ausente no prod
+    host: ${SPRING_MAIL_HOST:sandbox.smtp.mailtrap.io}
+    port: ${SPRING_MAIL_PORT:2525}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
   kafka:
     listener:
-      auto-startup: false
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+      # CORRIGIDO: auto-startup true em prod para processar webhooks
+      auto-startup: true
+    # CORRIGIDO: usa Kafka local do EC2 sem SASL (docker interno)
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     producer:
-      properties:
-        sasl.mechanism: PLAIN
-        security.protocol: SASL_SSL
-        sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username='${KAFKA_API_KEY}' password='${KAFKA_API_SECRET}';
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
+      group-id: signflow-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        sasl.mechanism: PLAIN
-        security.protocol: SASL_SSL
-        sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username='${KAFKA_API_KEY}' password='${KAFKA_API_SECRET}';
+        spring.json.trusted.packages: "com.signflow.*"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      clicksign-circuit-breaker:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+  ratelimiter:
+    instances:
+      userRateLimiter:
+        limitForPeriod: 10
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+        registerHealthIndicator: true
+      ipRateLimiter:
+        limitForPeriod: 10
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+        registerHealthIndicator: true
+      loginRateLimiter:
+        limitForPeriod: 5
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+        registerHealthIndicator: true
+    rate-limiter-aspect-order: 0
 
 security:
   jwt:
+    # OBRIGATÓRIO em prod — sem fallback
     secret: ${JWT_SECRET}
-    expiration: 86400000
+    expiration: 900000        # 15 minutos
+    refresh-expiration: 604800000  # 7 dias
+  admin:
+    # ALINHADO com docker-compose.prod.yml
+    username: ${SIGNFLOW_ADMIN_USERNAME}
+    password: ${SIGNFLOW_ADMIN_PASSWORD}
 
 management:
   endpoints:
@@ -74,10 +134,12 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
-# ── Swagger habilitado em produção com acesso controlado ─────────
-# Acesse: https://signflow.api.br/swagger-ui.html
-# JSON:   https://signflow.api.br/api-docs
+# Swagger habilitado em prod com acesso controlado
 springdoc:
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:true}
@@ -85,7 +147,6 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
     disable-swagger-default-url: true
-    # Configurações de UX do Swagger UI
     display-request-duration: true
     filter: true
     show-extensions: true
@@ -105,3 +166,4 @@ logging:
     com.signflow: INFO
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
+    org.apache.kafka: ERROR

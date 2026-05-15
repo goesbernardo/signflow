@@ -33,7 +33,7 @@ public class JwtUtils {
         return claimsResolver.apply(claims);
     }
 
-    private Claims extractAllClaims(String token) {
+    Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
@@ -47,15 +47,30 @@ public class JwtUtils {
 
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, userDetails.getUsername());
+        if (userDetails instanceof com.signflow.infrastructure.persistence.entity.UserEntity user) {
+            claims.put("tenant_id", user.getTenantId());
+        }
+        return createToken(claims, userDetails.getUsername(), jwtConfig.getExpiration());
     }
 
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generateToken(com.signflow.infrastructure.persistence.entity.UserEntity user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("tenant_id", user.getTenantId());
+        return createToken(claims, user.getUsername(), jwtConfig.getExpiration());
+    }
+
+    public String generateMfaToken(String username) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("mfa_pending", true);
+        return createToken(claims, username, 300000); // 5 minutos para MFA
+    }
+
+    private String createToken(Map<String, Object> claims, String subject, long expiration) {
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + jwtConfig.getExpiration()))
+                .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey())
                 .compact();
     }

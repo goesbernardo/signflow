@@ -1,0 +1,87 @@
+signflow:
+  encryption:
+    key: test-encryption-key-32-chars-long
+  default-provider: CLICKSIGN
+  providers:
+    clicksign:
+      enabled: true
+      base-url: https://sandbox.clicksign.com/api/v3
+      token: test-clicksign-token
+      webhook-secret: test-webhook-secret
+    docusign:
+      enabled: false
+      base-url: https://demo.docusign.net/restapi/v2.1/accounts/test-account
+      access-token: test-docusign-token
+      webhook-secret: test-docusign-webhook-secret
+
+server:
+  port: 8081
+
+security:
+  jwt:
+    secret: test-jwt-secret-key-for-testing-purposes-extended-64chars
+    expiration: 900000
+    refresh-expiration: 604800000
+  admin:
+    username: admin
+    password: Admin@Test2026
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  kafka:
+    listener:
+      auto-startup: false
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: signflow-test-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.signflow.*"
+  mail:
+    host: localhost
+    port: 25
+    username: test
+    password: test
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      clicksign-circuit-breaker:
+        registerHealthIndicator: false
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+      docusign-circuit-breaker:
+        registerHealthIndicator: false
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+  ratelimiter:
+    instances:
+      userRateLimiter:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+      ipRateLimiter:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+      loginRateLimiter:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0

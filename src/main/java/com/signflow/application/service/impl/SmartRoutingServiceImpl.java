@@ -9,6 +9,7 @@ import com.signflow.infrastructure.persistence.entity.ProviderRoutingRuleEntity;
 import com.signflow.infrastructure.persistence.repository.ProviderRoutingRuleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,6 +24,9 @@ public class SmartRoutingServiceImpl implements SmartRoutingService {
 
     private final ProviderRoutingRuleRepository repository;
 
+    @Value("${signflow.default-provider:CLICKSIGN}")
+    private String defaultProvider = "CLICKSIGN";
+
     @Override
     public ProviderSignature route(String userId, CreateEnvelopeCommand cmd) {
         log.info("Avaliando regras de Smart Routing para o usuário: {}", userId);
@@ -35,8 +39,8 @@ public class SmartRoutingServiceImpl implements SmartRoutingService {
             }
         }
 
-        log.info("Nenhuma regra compatível encontrada. Usando provedor padrão: CLICKSIGN");
-        return ProviderSignature.CLICKSIGN;
+        log.info("Nenhuma regra compatível encontrada. Usando provedor padrão: {}", defaultProvider);
+        return ProviderSignature.valueOf(defaultProvider);
     }
 
     @Override
@@ -51,8 +55,8 @@ public class SmartRoutingServiceImpl implements SmartRoutingService {
             }
         }
 
-        log.info("Nenhuma regra compatível encontrada. Usando provedor padrão: CLICKSIGN");
-        return ProviderSignature.CLICKSIGN;
+        log.info("Nenhuma regra compatível encontrada. Usando provedor padrão: {}", defaultProvider);
+        return ProviderSignature.valueOf(defaultProvider);
     }
 
     private boolean evaluate(ProviderRoutingRuleEntity rule, Object cmd) {

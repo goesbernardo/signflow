@@ -22,18 +22,18 @@ public record RegisterRequest(
         @Schema(example = "joao.silva@email.com")
         String email,
 
-        @NotBlank(message = "Senha é obrigatória")
-        @Size(min = 8, message = "Senha deve ter no mínimo 8 caracteres")
-        @Pattern(regexp = "^(?=.*[a-zA-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$",
-                 message = "Senha deve conter letras, números e caracteres especiais")
-        @Schema(example = "Senha@123")
+        @NotBlank(message = "senha é obrigatória")
+        @Size(min = 8, message = "senha deve ter no mínimo 12 caracteres")
+        @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{12,}$",
+                 message = "senha deve ter no mínimo 12 caracteres e conter letras maiúsculas, minúsculas, números e caracteres especiais")
+        @Schema(example = "SenhaForte@2026")
         String password,
 
         @NotBlank(message = "Nome é obrigatório")
         @Schema(example = "João da Silva")
         String name,
 
-        @NotNull(message = "Consentimento LGPD é obrigatório")
-        @Schema(description = "Data e hora do consentimento LGPD")
-        LocalDateTime consentAt
+        @NotBlank(message = "Tenant ID é obrigatório")
+        @Schema(example = "CLIENT_A")
+        String tenantId
 ) {}

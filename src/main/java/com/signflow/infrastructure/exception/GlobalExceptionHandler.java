@@ -91,6 +91,15 @@ public class GlobalExceptionHandler {
             case REMINDER_RATE_LIMIT -> HttpStatus.TOO_MANY_REQUESTS;
             case INVALID_AUTH_METHOD -> HttpStatus.BAD_REQUEST;
             case BUSINESS_RULE_VIOLATION -> HttpStatus.BAD_REQUEST;
+            case USER_ALREADY_EXISTS -> HttpStatus.CONFLICT;
+            case EMAIL_ALREADY_EXISTS -> HttpStatus.CONFLICT;
+            case REFRESH_TOKEN_EXPIRED -> HttpStatus.UNAUTHORIZED;
+            case REFRESH_TOKEN_NOT_FOUND -> HttpStatus.UNAUTHORIZED;
+            case ACCOUNT_LOCKED -> HttpStatus.LOCKED;
+            case INVALID_CREDENTIALS -> HttpStatus.UNAUTHORIZED;
+            case PASSWORD_ALREADY_USED -> HttpStatus.BAD_REQUEST;
+            case PASSWORD_EXPIRED -> HttpStatus.FORBIDDEN;
+            default -> HttpStatus.BAD_REQUEST;
         };
 
         ErrorResponse errorResponse = ErrorResponse.builder()

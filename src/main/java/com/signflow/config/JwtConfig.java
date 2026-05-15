@@ -16,4 +16,5 @@ public class JwtConfig {
     @NotBlank
     private String secret;
     private long expiration;
+    private long refreshExpiration;
 }

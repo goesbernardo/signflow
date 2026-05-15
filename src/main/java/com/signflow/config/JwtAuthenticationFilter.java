@@ -1,5 +1,6 @@
 package com.signflow.config;
 
+import com.signflow.infrastructure.security.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,7 +37,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             path = request.getRequestURI().substring(request.getContextPath().length());
         }
 
-        if (path.startsWith("/v1/auth/")
+        if (path.startsWith("/v1/auth/login")
+                || path.startsWith("/v1/auth/register")
+                || path.startsWith("/v1/auth/refresh")
+                || path.startsWith("/v1/auth/logout")
                 || path.startsWith("/v1/webhook/")
                 || path.contains("/webhook/")
                 || path.startsWith("/swagger-ui")
@@ -49,39 +53,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        final String authHeader = request.getHeader("Authorization");
-
-        // Sem header Bearer — deixar o Security decidir (vai rejeitar se rota protegida)
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         try {
-            String jwt = authHeader.substring(7);
-            String username = jwtUtils.extractUsername(jwt);
+            final String authHeader = request.getHeader("Authorization");
 
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String jwt = authHeader.substring(7);
+                String username = jwtUtils.extractUsername(jwt);
+                String tenantId = (String) jwtUtils.extractAllClaims(jwt).get("tenant_id");
 
-                if (jwtUtils.validateToken(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (tenantId != null) {
+                    TenantContext.setCurrentTenant(tenantId);
+                }
+
+                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                    if (jwtUtils.validateToken(jwt, userDetails)) {
+                        UsernamePasswordAuthenticationToken authToken =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
                 }
             }
+            filterChain.doFilter(request, response);
         } catch (Exception e) {
-            // Token malformado, expirado ou inválido — limpar contexto e continuar
-            // O Security vai rejeitar a requisição se a rota exigir autenticação
-            log.warn("JWT inválido para requisição {}: {}", path, e.getMessage());
+            log.warn("Erro ao processar JWT para requisição {}: {}", path, e.getMessage());
             SecurityContextHolder.clearContext();
+            filterChain.doFilter(request, response);
+        } finally {
+            TenantContext.clear();
         }
-
-        filterChain.doFilter(request, response);
     }
 }

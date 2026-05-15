@@ -73,6 +73,12 @@ pipeline {
                         -e SERVER_PORT=8081 \
                         -e JWT_SECRET=signflow-jwt-secret-key-prod-2026 \
                         -e SIGNFLOW_ENCRYPTION_KEY=signflow-encryption-key-prod-2026 \
+                        -e SIGNFLOW_ADMIN_USER=seu_usuario_seguro \
+                        -e SIGNFLOW_ADMIN_PASSWORD=senha_forte_gerada \
+                        -e SPRING_MAIL_HOST=sandbox.smtp.mailtrap.io \
+                        -e SPRING_MAIL_PORT=2525 \
+                        -e SPRING_MAIL_USERNAME=3530f56e286f40 \
+                        -e SPRING_MAIL_PASSWORD=d2f0bd913cb1b5 \
                         ${APP_NAME}:latest
 
                     docker image prune -f
