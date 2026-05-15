@@ -267,7 +267,7 @@ public class SignatureController {
                     3. Capturar o returnUrl com o parâmetro event= para saber o resultado
                        (event=signing_complete | decline | session_timeout | ttl_expired)
 
-                    Suportado por: DocuSign
+                    suportado por: DocuSign
                     """)
     public ResponseEntity<EmbeddedSigningView> createEmbeddedSigningView(
             @RequestHeader(value = "provider", required = false) ProviderSignature provider,
@@ -291,8 +291,7 @@ public class SignatureController {
         byte[] content = signatureService.downloadDocument(envelopeId, documentId, provider);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"documento-" + documentId + ".pdf\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"documento-" + documentId + ".pdf\"")
                 .body(content);
     }
 
@@ -307,8 +306,7 @@ public class SignatureController {
         byte[] content = signatureService.downloadCertificate(envelopeId, provider);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"certificate-" + envelopeId + ".pdf\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"certificate-" + envelopeId + ".pdf\"")
                 .body(content);
     }
 
