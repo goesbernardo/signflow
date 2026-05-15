@@ -125,6 +125,21 @@ O projeto foi construído focando em manutenibilidade e extensibilidade, utiliza
 
 ---
 
+## Internacionalização (i18n)
+
+A API suporta múltiplos idiomas para mensagens de erro e respostas do sistema via cabeçalho `Accept-Language`.
+
+| Idioma | Locale | Status |
+|---|---|---|
+| Português (Brasil) | `pt-BR` | ✅ (Padrão) |
+| Inglês | `en` | ✅ |
+| Espanhol | `es` | ✅ |
+| Italiano | `it` | ✅ |
+
+---
+
+---
+
 ## Endpoints
 
 A documentação interativa completa está disponível via **Swagger UI**:

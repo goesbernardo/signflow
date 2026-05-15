@@ -1,5 +1,6 @@
 package com.signflow.application.service.impl;
 
+import com.signflow.infrastructure.security.TenantContext;
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import com.signflow.api.dto.OutboundWebhookDeliveryResponse;
 import com.signflow.application.port.in.SignatureService;
@@ -101,7 +102,8 @@ public class SignatureServiceImpl implements SignatureService {
         log.info("Atualizando envelope {} no provedor {}", externalId, resolvedProvider);
         Envelope envelope = registry.get(resolvedProvider).updateEnvelope(externalId, cmd);
 
-        repository.findByExternalId(externalId).ifPresent(entity -> {
+        String tenantId = TenantContext.getCurrentTenant();
+        repository.findByExternalIdAndTenantId(externalId, tenantId).ifPresent(entity -> {
             entity.setName(cmd.name());
             repository.save(entity);
         });
@@ -114,7 +116,8 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     public Envelope getEnvelope(String externalId, ProviderSignature provider, boolean includeSigners) {
         String currentUserId = SecurityContextHolder.getContext().getAuthentication().getName();
-        return repository.findByExternalId(externalId)
+        String tenantId = TenantContext.getCurrentTenant();
+        return repository.findByExternalIdAndTenantId(externalId, tenantId)
                 .map(entity -> {
                     auditLogService.log("GET_ENVELOPE", "ENVELOPE", externalId, "Acesso local ao envelope");
                     log.info("[AUDIT] Usuário {} acessou envelope local {}.", currentUserId, externalId);
@@ -157,7 +160,9 @@ public class SignatureServiceImpl implements SignatureService {
         ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
         log.info("Ativando envelope {} no provedor {}", externalId, resolvedProvider);
 
-        EnvelopeEntity entity = repository.findByExternalId(externalId).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
+        String tenantId = TenantContext.getCurrentTenant();
+        EnvelopeEntity entity = repository.findByExternalIdAndTenantId(externalId, tenantId)
+                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
 
         if (entity.getStatus() != Status.DRAFT) {
             throw new DomainException(DomainErrorCode.INVALID_ENVELOPE_STATUS, "Somente envelopes em rascunho (DRAFT) podem ser ativados. Status atual: " + entity.getStatus());
@@ -176,7 +181,9 @@ public class SignatureServiceImpl implements SignatureService {
         ProviderSignature resolvedProvider = resolveProviderForEnvelope(externalId, provider);
         log.info("Cancelando envelope {} no provedor {}", externalId, resolvedProvider);
 
-        EnvelopeEntity entity = repository.findByExternalId(externalId).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
+        String tenantId = TenantContext.getCurrentTenant();
+        EnvelopeEntity entity = repository.findByExternalIdAndTenantId(externalId, tenantId)
+                .orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Envelope não encontrado: " + externalId));
 
         if (entity.getStatus() != Status.ACTIVE && entity.getStatus() != Status.DRAFT) {
             throw new DomainException(DomainErrorCode.INVALID_ENVELOPE_STATUS, "Somente envelopes ACTIVE ou DRAFT podem ser cancelados. Status atual: " + entity.getStatus());
@@ -189,7 +196,8 @@ public class SignatureServiceImpl implements SignatureService {
 
     private ProviderSignature resolveProviderForEnvelope(String externalId, ProviderSignature provider) {
         if (provider != null) return provider;
-        return repository.findByExternalId(externalId)
+        String tenantId = TenantContext.getCurrentTenant();
+        return repository.findByExternalIdAndTenantId(externalId, tenantId)
                 .map(EnvelopeEntity::getProvider).orElseThrow(() -> new DomainException(DomainErrorCode.NOT_FOUND, "Provider não informado e envelope não encontrado localmente para o ID: " + externalId));
     }
 
@@ -198,12 +206,13 @@ public class SignatureServiceImpl implements SignatureService {
     @Override
     public Page<Envelope> listEnvelopes(Status status, Pageable pageable, boolean includeSigners) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        String tenantId = TenantContext.getCurrentTenant();
         auditLogService.log("LIST_ENVELOPES", "ENVELOPE", null, "Listagem de envelopes com status " + status);
-        log.info("[AUDIT] Usuário {} listou seus envelopes com status {} (includeSigners={})", userId, status, includeSigners);
+        log.info("[AUDIT] Usuário {} (Tenant: {}) listou seus envelopes com status {} (includeSigners={})", userId, tenantId, status, includeSigners);
 
         Page<EnvelopeEntity> entities = status != null
-                ? repository.findAllByUserIdAndStatus(userId, status, pageable)
-                : repository.findAllByUserId(userId, pageable);
+                ? repository.findAllByUserIdAndStatusAndTenantId(userId, status, tenantId, pageable)
+                : repository.findAllByUserIdAndTenantId(userId, tenantId, pageable);
 
         return entities.map(entity -> {
             Envelope envelope = Envelope.builder()
@@ -344,7 +353,8 @@ public class SignatureServiceImpl implements SignatureService {
         log.info("Adicionando documento ao envelope {} no provedor {}", externalId, resolvedProvider);
         Document document = registry.get(resolvedProvider).addDocument(externalId, cmd);
 
-        repository.findByExternalId(externalId).ifPresent(envelope -> {
+        String tenantId = TenantContext.getCurrentTenant();
+        repository.findByExternalIdAndTenantId(externalId, tenantId).ifPresent(envelope -> {
             DocumentEntity entity = new DocumentEntity();
             entity.setExternalId(document.getExternalId());
             entity.setFilename(cmd.filename());
@@ -420,7 +430,8 @@ public class SignatureServiceImpl implements SignatureService {
             if (signer != null) signers.add(signer);
         }
 
-        repository.findByExternalId(externalId).ifPresent(envelope -> {
+        String tenantId = TenantContext.getCurrentTenant();
+        repository.findByExternalIdAndTenantId(externalId, tenantId).ifPresent(envelope -> {
             for (int i = 0; i < signers.size(); i++) {
                 Signer signer = signers.get(i);
                 AddSignerCommand cmd = commands.get(i);
@@ -488,7 +499,8 @@ public class SignatureServiceImpl implements SignatureService {
             return;
         }
 
-        repository.findByExternalId(externalId).ifPresent(envelope -> {
+        String tenantId = TenantContext.getCurrentTenant();
+        repository.findByExternalIdAndTenantId(externalId, tenantId).ifPresent(envelope -> {
             var signerOpt = signerRepository.findByExternalId(cmd.signerId());
             var docOpt    = documentRepository.findByExternalId(cmd.documentId());
 

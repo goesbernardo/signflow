@@ -24,7 +24,7 @@ public class EmailServiceImpl implements EmailService {
         message.setTo(user.getEmail());
         message.setSubject("Seu código de acesso SignFlow");
         message.setText("Olá " + user.getName() + ",\n\n" +
-                "Seu código de autenticação multifator é: " + code + "\n\n" +
+                "Seu código de autenticação para acesso ao Signflow é: " + code + "\n\n" +
                 "Este código expira em 5 minutos.\n" +
                 "Se você não solicitou este código, ignore este e-mail.");
 

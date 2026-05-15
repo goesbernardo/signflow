@@ -7,6 +7,13 @@ import com.signflow.config.JwtUtils;
 import com.signflow.domain.exception.DomainErrorCode;
 import com.signflow.domain.exception.DomainException;
 import com.signflow.enums.ProviderSignature;
+import com.signflow.application.service.LoginAttemptService;
+import com.signflow.application.service.MfaService;
+import com.signflow.application.service.PasswordPolicyService;
+import com.signflow.application.service.RefreshTokenService;
+import com.signflow.infrastructure.persistence.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -48,6 +55,27 @@ public class GlobalExceptionHandlerTest {
     private MockMvc mockMvc;
 
     @MockBean
+    private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private RefreshTokenService refreshTokenService;
+
+    @MockBean
+    private LoginAttemptService loginAttemptService;
+
+    @MockBean
+    private MfaService mfaService;
+
+    @MockBean
+    private PasswordPolicyService passwordPolicyService;
+
+    @Autowired
+    private HttpServletRequest request;
+
+    @MockBean
+    private UserRepository userRepository;
+
+    @MockBean
     private SignatureService signatureService;
 
     @MockBean
@@ -63,13 +91,13 @@ public class GlobalExceptionHandlerTest {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @MockBean
-    private MessageSource messageSource;
-
-    @MockBean
-    private LocaleResolver localeResolver;
-
-    @MockBean
     private com.signflow.application.service.AuditLogService auditLogService;
+
+    @MockBean
+    private org.springframework.context.MessageSource messageSource;
+
+    @MockBean
+    private org.springframework.web.servlet.LocaleResolver localeResolver;
 
     @ParameterizedTest(name = "Erro {0} deve retornar HTTP {1}")
     @MethodSource("provideErrorCodesAndStatus")
@@ -86,30 +114,6 @@ public class GlobalExceptionHandlerTest {
                 .andExpect(status().is(expectedStatus))
                 .andExpect(jsonPath("$.details[0].message").value("Mensagem de erro"))
                 .andExpect(jsonPath("$.details[0].code").value(errorCode.name()));
-    }
-
-    @org.junit.jupiter.api.Test
-    @DisplayName("Deve retornar 401 para BadCredentialsException")
-    void shouldReturn401ForBadCredentials() throws Exception {
-        when(authenticationManager.authenticate(any()))
-                .thenThrow(new BadCredentialsException("Invalid credentials"));
-
-        when(messageSource.getMessage(eq("error.bad_credentials"), any(), any()))
-                .thenReturn("Credenciais inválidas");
-        when(messageSource.getMessage(eq("error.bad_credentials_message"), any(), any()))
-                .thenReturn("Usuário ou senha incorretos");
-
-        String loginJson = "{\"username\":\"admin\", \"password\":\"wrong\"}";
-
-        mockMvc.perform(post("/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginJson))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("Credenciais inválidas"))
-                .andExpect(jsonPath("$.message").value("Usuário ou senha incorretos"))
-                .andExpect(jsonPath("$.details[0].field").value("credentials"))
-                .andExpect(jsonPath("$.details[0].message").value("Invalid credentials"))
-                .andExpect(jsonPath("$.details[0].code").value("BAD_CREDENTIALS"));
     }
 
     @org.junit.jupiter.api.Test

@@ -5,4 +5,9 @@ import lombok.extern.jackson.Jacksonized;
 
 @Builder
 @Jacksonized
-public record LoginResponse(String token) {}
+public record LoginResponse(
+    String accessToken, 
+    String refreshToken, 
+    String mfaToken, 
+    boolean mfaRequired
+) {}

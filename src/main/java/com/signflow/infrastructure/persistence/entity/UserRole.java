@@ -4,5 +4,6 @@ public enum UserRole {
     ADMIN,
     OPERATOR,
     VIEWER,
-    WEBHOOK
+    WEBHOOK,
+    USER
 }

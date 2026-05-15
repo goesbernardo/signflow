@@ -20,7 +20,9 @@ public class I18nConfig {
                 new Locale("pt", "BR"),
                 Locale.ENGLISH,
                 Locale.US,
-                new Locale("es", "ES")
+                new Locale("es", "ES"),
+                Locale.ITALIAN,
+                Locale.ITALY
         ));
         return resolver;
     }

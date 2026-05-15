@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -32,7 +33,10 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler      accessDeniedHandler;
 
     private static final String[] PUBLIC_PATHS = {
-            "/v1/auth/**",
+            "/v1/auth/login",
+            "/v1/auth/refresh",
+            "/v1/auth/logout",
+            "/v1/auth/mfa/verify",
             "/v1/webhook/**",
             "/api-docs/**",
             "/v3/api-docs/**",
@@ -55,6 +59,10 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS).permitAll()
+                        .requestMatchers("/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/v1/webhook/**").hasRole("WEBHOOK")
+                        .requestMatchers(HttpMethod.GET, "/v1/signatures/**").hasAnyRole("OPERATOR", "VIEWER")
+                        .requestMatchers("/v1/signatures/**").hasRole("OPERATOR")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(s -> s

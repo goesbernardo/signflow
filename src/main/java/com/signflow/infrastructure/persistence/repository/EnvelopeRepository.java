@@ -12,9 +12,10 @@ import java.util.Optional;
 @Repository
 public interface EnvelopeRepository extends JpaRepository<EnvelopeEntity, Long> {
 
+    Optional<EnvelopeEntity> findByExternalIdAndTenantId(String externalId, String tenantId);
     Optional<EnvelopeEntity> findByExternalId(String externalId);
 
-    Page<EnvelopeEntity> findAllByUserId(String userId, Pageable pageable);
+    Page<EnvelopeEntity> findAllByUserIdAndTenantId(String userId, String tenantId, Pageable pageable);
 
-    Page<EnvelopeEntity> findAllByUserIdAndStatus(String userId, Status status, Pageable pageable);
+    Page<EnvelopeEntity> findAllByUserIdAndStatusAndTenantId(String userId, Status status, String tenantId, Pageable pageable);
 }

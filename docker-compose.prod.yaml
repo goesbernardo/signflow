@@ -1,58 +1,85 @@
-version: '3.8'
-
 services:
-
   signflow-db:
-
     image: postgres:16
-
     container_name: signflow-db
-
     restart: always
-
     environment:
       POSTGRES_DB: signflow
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-
     ports:
       - "5432:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  app:
-
-    build: .
-
-    container_name: signflow-app
-
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: signflow-kafka
     restart: always
-
-    depends_on:
-      - signflow-db
-
+    ports:
+      - "9092:9092"
     environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
 
-      SPRING_PROFILES_ACTIVE: prod
-
-      SERVER_PORT: 8081
-
-      JWT_SECRET: "signflow-jwt-secret-key-prod-2026"
-
-      SIGNFLOW_ENCRYPTION_KEY: "signflow-encryption-key-prod-2026"
-
-      CLICKSIGN_URL: https://sandbox.clicksign.com
-
-      CLICKSIGN_API_TOKEN: "43e5624f-84fa-4c72-b3c7-03202c34f8c6"
-
-      CLICKSIGN_WEBHOOK_SECRET: webhook-secret
-
-      SPRING_DATASOURCE_URL: jdbc:postgresql://signflow-db:5432/signflow
-
-
+  app:
+    image: signflow-app:latest
+    pull_policy: never
+    container_name: signflow-app
+    restart: always
     ports:
       - "8081:8081"
+    depends_on:
+      - signflow-db
+      - kafka
+    environment:
+      # Banco de dados — aponta para o container signflow-db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://signflow-db:5432/signflow
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+
+      # Perfil
+      SPRING_PROFILES_ACTIVE: prod
+
+      # Servidor
+      SERVER_PORT: 8081
+
+      # Admin padrão (criado pelo DataInitializer)
+      SIGNFLOW_ADMIN_USERNAME: admin
+      SIGNFLOW_ADMIN_PASSWORD: Admin@Signflow2026
+
+      # Segurança
+      JWT_SECRET: signflow-jwt-secret-key-prod-2026
+      SIGNFLOW_ENCRYPTION_KEY: signflow-encryption-key-prod-2026
+
+      # ClickSign (sandbox)
+      CLICKSIGN_URL: https://sandbox.clicksign.com
+      CLICKSIGN_API_TOKEN: 43e5624f-84fa-4c72-b3c7-03202c34f8c6
+      CLICKSIGN_WEBHOOK_SECRET: webhook-secret
+
+      # E-mail — Mailtrap sandbox
+      SPRING_MAIL_HOST: sandbox.smtp.mailtrap.io
+      SPRING_MAIL_PORT: 2525
+      SPRING_MAIL_USERNAME: 3530f56e286f40
+      SPRING_MAIL_PASSWORD: d2f0bd913cb1b5
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
 
 volumes:
   postgres_data:
+  kafka_data:

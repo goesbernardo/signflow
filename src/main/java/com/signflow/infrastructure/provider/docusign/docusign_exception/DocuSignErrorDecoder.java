@@ -29,13 +29,9 @@ public class DocuSignErrorDecoder implements ErrorDecoder {
 
             if (rawBody == null || rawBody.isBlank()) {
                 if (status == 401) {
-                    return new DocuSignIntegrationException(
-                            "Erro de autenticação com o DocuSign. Verifique o access token. Status: " + status,
-                            "UNAUTHORIZED", rawBody);
+                    return new DocuSignIntegrationException("Erro de autenticação com o DocuSign. Verifique o access token. Status: " + status, "UNAUTHORIZED", rawBody);
                 }
-                return new DocuSignIntegrationException(
-                        "Erro na integração com DocuSign (corpo vazio). Status: " + status,
-                        "EMPTY_RESPONSE", rawBody);
+                return new DocuSignIntegrationException("Erro na integração com DocuSign (corpo vazio). Status: " + status, "EMPTY_RESPONSE", rawBody);
             }
 
             DocuSignErrorResponse errorResponse = objectMapper.readValue(rawBody, DocuSignErrorResponse.class);
@@ -45,15 +41,11 @@ public class DocuSignErrorDecoder implements ErrorDecoder {
                 return new DocuSignIntegrationException(errorResponse.getMessage(), code, rawBody);
             }
 
-            return new DocuSignIntegrationException(
-                    "Erro na integração com DocuSign. Status: " + status,
-                    "DOCUSIGN_ERROR", rawBody);
+            return new DocuSignIntegrationException("Erro na integração com DocuSign. Status: " + status, "DOCUSIGN_ERROR", rawBody);
 
         } catch (Exception e) {
             log.error("Erro ao decodificar resposta de erro do DocuSign. Status: {}. Body: {}", status, rawBody, e);
-            return new DocuSignIntegrationException(
-                    "Erro ao processar resposta do DocuSign. Status: " + status,
-                    "DECODE_ERROR", rawBody, e);
+            return new DocuSignIntegrationException("Erro ao processar resposta do DocuSign. Status: " + status, "DECODE_ERROR", rawBody, e);
         }
     }
 }

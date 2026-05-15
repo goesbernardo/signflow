@@ -18,6 +18,8 @@ import com.signflow.infrastructure.persistence.entity.EnvelopeEntity;
 import com.signflow.infrastructure.persistence.entity.RequirementEntity;
 import com.signflow.infrastructure.persistence.entity.SignerEntity;
 import com.signflow.infrastructure.persistence.repository.*;
+import com.signflow.infrastructure.security.TenantContext;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -72,6 +74,11 @@ class SignatureServiceImplTest {
 
     @InjectMocks
     private SignatureServiceImpl envelopeService;
+
+    @BeforeEach
+    void setUp() {
+        TenantContext.setCurrentTenant("test-tenant");
+    }
 
     private final String envelopeId = "env-123";
     private final String signerId = "signer-123";
@@ -225,13 +232,13 @@ class SignatureServiceImplTest {
                 .thenReturn(mockSigners.get(0))
                 .thenReturn(mockSigners.get(1));
 
-        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelope));
+        when(repository.findByExternalIdAndTenantId(eq(envelopeId), any())).thenReturn(Optional.of(envelope));
 
         List<Signer> result = envelopeService.addSigners(envelopeId, commands, ProviderSignature.CLICKSIGN);
 
         verify(gateway, times(2)).addSigner(eq(envelopeId), any(AddSignerCommand.class));
         verify(signerRepository, times(2)).save(any(SignerEntity.class));
-        verify(repository).findByExternalId(envelopeId);
+        verify(repository).findByExternalIdAndTenantId(eq(envelopeId), any());
     }
 
     @Test
@@ -271,7 +278,7 @@ class SignatureServiceImplTest {
 
             // Mock addDocument
             lenient().when(gateway.addDocument(eq(envelopeId), any(AddDocumentCommand.class))).thenReturn(mockDoc);
-            lenient().when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(envelopeEntity));
+            lenient().when(repository.findByExternalIdAndTenantId(eq(envelopeId), any())).thenReturn(Optional.of(envelopeEntity));
 
             // Mock addSigners
             lenient().when(gateway.addSigner(eq(envelopeId), any(AddSignerCommand.class))).thenReturn(mockSigners.get(0));
@@ -345,7 +352,7 @@ class SignatureServiceImplTest {
         entity.setExternalId(envelopeId);
         entity.setStatus(Status.DRAFT);
 
-        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+        when(repository.findByExternalIdAndTenantId(eq(envelopeId), any())).thenReturn(Optional.of(entity));
         when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
         lenient().when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(null);
 
@@ -363,7 +370,7 @@ class SignatureServiceImplTest {
         entity.setExternalId(envelopeId);
         entity.setStatus(Status.ACTIVE);
 
-        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+        when(repository.findByExternalIdAndTenantId(eq(envelopeId), any())).thenReturn(Optional.of(entity));
 
         DomainException exception = assertThrows(DomainException.class, () ->
                 envelopeService.activateEnvelope(envelopeId, ProviderSignature.CLICKSIGN)
@@ -380,7 +387,7 @@ class SignatureServiceImplTest {
         entity.setExternalId(envelopeId);
         entity.setStatus(Status.ACTIVE);
 
-        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+        when(repository.findByExternalIdAndTenantId(eq(envelopeId), any())).thenReturn(Optional.of(entity));
         when(registry.get(ProviderSignature.CLICKSIGN)).thenReturn(gateway);
         lenient().when(kafkaTemplate.send(anyString(), any(), any())).thenReturn(null);
 
@@ -398,7 +405,7 @@ class SignatureServiceImplTest {
         entity.setExternalId(envelopeId);
         entity.setStatus(Status.CLOSED);
 
-        when(repository.findByExternalId(envelopeId)).thenReturn(Optional.of(entity));
+        when(repository.findByExternalIdAndTenantId(eq(envelopeId), any())).thenReturn(Optional.of(entity));
 
         DomainException exception = assertThrows(DomainException.class, () ->
                 envelopeService.cancelEnvelope(envelopeId, ProviderSignature.CLICKSIGN)

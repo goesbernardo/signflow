@@ -2,6 +2,7 @@ package com.signflow.infrastructure.persistence.entity;
 
 import com.signflow.enums.ProviderSignature;
 import com.signflow.enums.Status;
+import com.signflow.infrastructure.persistence.listener.TenantEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @ToString(exclude = {"signers", "documents", "events"})
 @AllArgsConstructor
+@EntityListeners(TenantEntityListener.class)
 public class EnvelopeEntity {
 
     @Id
@@ -31,6 +33,9 @@ public class EnvelopeEntity {
     private LocalDateTime created;
     @Column(name = "external_id",unique = true)
     private String externalId;
+
+    @Column(name = "tenant_id")
+    private String tenantId;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
