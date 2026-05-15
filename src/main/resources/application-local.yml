@@ -8,9 +8,6 @@ signflow:
       base-url: ${CLICKSIGN_URL:https://sandbox.clicksign.com/api/v3}
       token: ${CLICKSIGN_API_TOKEN:43e5624f-84fa-4c72-b3c7-03202c34f8c6}
       webhook-secret: ${CLICKSIGN_WEBHOOK_SECRET:}
-    docusign:
-      enabled: false
-      base-url: ${DOCUSIGN_URL:}
 
 server:
   forward-headers-strategy: framework
@@ -48,6 +45,18 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  mail:
+    host: ${SPRING_MAIL_HOST:sandbox.smtp.mailtrap.io}
+    port: ${SPRING_MAIL_PORT:2525}
+    username: ${SPRING_MAIL_USERNAME:3530f56e286f40}
+    password: ${SPRING_MAIL_PASSWORD:d2f0bd913cb1b5}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
   kafka:
     listener:
@@ -87,6 +96,11 @@ resilience4j:
         limitRefreshPeriod: 1m
         timeoutDuration: 0
         registerHealthIndicator: true
+      loginRateLimiter:
+        limitForPeriod: 5
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
+        registerHealthIndicator: true
     rate-limiter-aspect-order: 0
 
 security:
@@ -94,7 +108,11 @@ security:
     # segredo de fallback para desenvolvimento (HS512 exige ≥ 512 bits / 64 chars)
     # Em produção (application-prod.yml), a variável JWT_SECRET é OBRIGATÓRIA e sem fallback.
     secret: ${JWT_SECRET:43e5624f-84fa-4c72-b3c7-03202c34f8c6}
-    expiration: 86400000 # 24 hours
+    expiration: 900000 # 15 minutes
+    refresh-expiration: 604800000 # 7 days
+  admin:
+    username: ${SIGNFLOW_ADMIN_USER:admin}
+    password: ${SIGNFLOW_ADMIN_PASSWORD:admin123}
 
 management:
   endpoints:
@@ -116,3 +134,4 @@ logging:
     root: INFO
     com.signflow: INFO
     org.hibernate.SQL: WARN
+    org.apache.kafka: ERROR
