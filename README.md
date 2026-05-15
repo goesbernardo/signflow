@@ -49,18 +49,21 @@ signflow/
     ├── persistence/              # Entities, Repositories, Migrations (Flyway)
     ├── security/                 # EncryptionConverter (AES/GCM)
     └── provider/
-        └── clicksign/            # Gateway ClickSign — client, mapper, webhook handler
+        ├── clicksign/            # Gateway ClickSign — client, mapper, webhook handler, DTOs
+        └── docusign/             # Gateway DocuSign — client, mapper, webhook handler, DTOs
 ```
 
 ### Pipeline de Webhook
 
 ```
-Provider (ClickSign)
+Provider (ClickSign / DocuSign / ...)
     ↓ POST /webhook/{provider}
 WebhookController → publica em Kafka (202 Accepted imediato)
     ↓ signflow.webhook.received
-WebhookConsumer (@KafkaListener) → chama WebhookHandler
-    ↓
+WebhookConsumer (@KafkaListener) → Map<String, WebhookHandler>
+    ├── "clicksign" → ClickSignWebhookHandlerImpl → normaliza payload
+    └── "docusign"  → DocuSignWebhookHandlerImpl  → normaliza payload
+    ↓ NormalizedWebhookEvent
 WebhookEventProcessor → persiste evento + atualiza banco
     ↓
 OutboundWebhookService (@Async) → notifica callbackUrl do cliente
@@ -68,9 +71,11 @@ OutboundWebhookService (@Async) → notifica callbackUrl do cliente
     ↓ 3 falhas → Dead Letter Queue (signflow.webhook.outbound.dlq)
 ```
 
+O `WebhookConsumer` injeta `Map<String, WebhookHandler>` — novos providers são registrados apenas adicionando um `@Component("nome-do-provider")` sem nenhuma alteração no consumer.
+
 ### Princípio central de domínio
 
-Os `Commands` usam enums neutros — `SignatureAuthMethod`, `SignerRole`, `NotificationChannel`. Cada gateway mapeia esses enums para os tipos específicos do seu provider sem contaminar o domínio. Adicionar um novo provider não altera nenhum endpoint ou regra de negócio existente.
+Os `Commands` usam enums neutros — `SignatureAuthMethod`, `SignerRole`, `NotificationChannel`. Cada gateway mapeia esses enums para os tipos específicos do seu provider sem contaminar o domínio. O `SmartRoutingService` seleciona o provider por regras configuráveis; o provider padrão é definido via `${signflow.default-provider}` (padrão: `CLICKSIGN`). Adicionar um novo provider não altera nenhum endpoint ou regra de negócio existente.
 
 ---
 
@@ -119,9 +124,22 @@ O projeto foi construído focando em manutenibilidade e extensibilidade, utiliza
 | Provider | Status | Autenticações |
 |---|---|---|
 | ClickSign | ✅ Implementado e testado | EMAIL, SMS, WhatsApp, Pix, Manuscrita, Biometria Facial, API |
+| DocuSign | ✅ Implementado | EMAIL, SMS, Manuscrita (initialHere), Biometria Facial |
 | D4Sign | 🔜 Em desenvolvimento | — |
 | ZapSign | 📋 Mapeado | — |
-| DocuSign | 📋 Mapeado | — |
+
+### Ativando o DocuSign
+
+O DocuSign está desabilitado por padrão (`signflow.providers.docusign.enabled=false`). Para ativar:
+
+```env
+DOCUSIGN_ENABLED=true
+DOCUSIGN_BASE_URL=https://na3.docusign.net/restapi/v2.1/accounts/{account-id}
+DOCUSIGN_ACCESS_TOKEN=<oauth2-access-token>
+DOCUSIGN_WEBHOOK_SECRET=<hmac-secret>
+```
+
+> **Autenticação**: O DocuSign utiliza **OAuth2 Bearer Token**. Para produção, implemente o JWT Bearer Grant com chave RSA conforme a [documentação oficial](https://developers.docusign.com/platform/auth/jwt-get-token/). Para sandbox, um access token estático obtido via Developer Console é suficiente.
 
 ---
 
@@ -143,7 +161,7 @@ A API suporta múltiplos idiomas para mensagens de erro e respostas do sistema v
 ## Endpoints
 
 A documentação interativa completa está disponível via **Swagger UI**:
-- Local: `http://localhost:8080/swagger-ui.html`
+- Local: `http://localhost:8081/swagger-ui.html`
 - Produção: `https://signflow.api.br/swagger-ui.html`
 
 ---
@@ -175,10 +193,19 @@ JWT_SECRET=
 # gere com: openssl rand -base64 32
 SIGNFLOW_ENCRYPTION_KEY=
 
+# Provider padrão quando não há regra de Smart Routing (CLICKSIGN | DOCUSIGN)
+SIGNFLOW_DEFAULT_PROVIDER=CLICKSIGN
+
 # ClickSign
 CLICKSIGN_URL=https://sandbox.clicksign.com/api/v3
 CLICKSIGN_API_TOKEN=
 CLICKSIGN_WEBHOOK_SECRET=
+
+# DocuSign (desabilitado por padrão — remova ou defina DOCUSIGN_ENABLED=false para não usar)
+DOCUSIGN_ENABLED=false
+DOCUSIGN_BASE_URL=https://na3.docusign.net/restapi/v2.1/accounts/{account-id}
+DOCUSIGN_ACCESS_TOKEN=
+DOCUSIGN_WEBHOOK_SECRET=
 
 # Kafka (Upstash em produção)
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
@@ -203,7 +230,7 @@ docker-compose up -d
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-A aplicação estará disponível em `http://localhost:8080`.
+A aplicação estará disponível em `http://localhost:8081`.
 
 ---
 
@@ -267,12 +294,16 @@ Configure regras para que o SignFlow selecione o provider automaticamente:
 POST /v1/routing-rules
 { "priority": 1, "conditionType": "ALWAYS", "provider": "CLICKSIGN", "active": true }
 
+# Usar DocuSign quando auth for EMAIL
+POST /v1/routing-rules
+{ "priority": 2, "conditionType": "AUTH_METHOD", "conditionValue": "EMAIL", "provider": "DOCUSIGN", "active": true }
+
 # Usar D4Sign quando auth for PIX
 POST /v1/routing-rules
-{ "priority": 2, "conditionType": "AUTH_METHOD", "conditionValue": "PIX", "provider": "D4SIGN", "active": true }
+{ "priority": 3, "conditionType": "AUTH_METHOD", "conditionValue": "PIX", "provider": "D4SIGN", "active": true }
 ```
 
-Quando o header `provider` não for informado, o SignFlow avalia as regras por prioridade e roteia automaticamente.
+Quando o header `provider` não for informado, o SignFlow avalia as regras por prioridade e roteia automaticamente. Se nenhuma regra corresponder, usa o provider padrão configurado em `SIGNFLOW_DEFAULT_PROVIDER` (padrão: `CLICKSIGN`).
 
 ---
 
@@ -300,7 +331,7 @@ O sistema tenta a entrega até 3 vezes com backoff progressivo (0s → 60s → 6
 - **BCrypt fator 12** — senhas com custo computacional adequado
 - **AES/GCM** — criptografia autenticada com IV aleatório por operação; dados do signatário protegidos em repouso
 - **Rate Limiter** — por usuário e por IP (10 req/min)
-- **Circuit Breaker** — proteção automática contra degradação do provider
+- **Circuit Breaker** — proteção automática contra degradação do provider (instâncias independentes por provider: `clicksign-circuit-breaker`, `docusign-circuit-breaker`)
 - **Stateless** — sem sessão no servidor
 - **Audit Log** — rastreabilidade de acessos e operações críticas com IP e User-Agent
 
