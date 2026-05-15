@@ -92,15 +92,42 @@ class DocuSignErrorDecoderTest {
     }
 
     @Test
-    @DisplayName("deve retornar DECODE_ERROR quando JSON for inválido")
-    void deveRetornarDecodeErrorParaJsonInvalido() {
+    @DisplayName("deve retornar PARSE_ERROR quando JSON for inválido (começa com '{' mas é malformado)")
+    void deveRetornarParseErrorParaJsonMalformado() {
         var response = createResponse(500, "{invalid-json}");
 
         var exception = decoder.decode("POST /envelopes", response);
 
         assertThat(exception).isInstanceOf(DocuSignIntegrationException.class);
         var dsEx = (DocuSignIntegrationException) exception;
-        assertThat(dsEx.getDsErrorCode()).isEqualTo("DECODE_ERROR");
+        assertThat(dsEx.getDsErrorCode()).isEqualTo("PARSE_ERROR");
+    }
+
+    @Test
+    @DisplayName("deve retornar INVALID_REQUEST quando resposta for HTML (não-JSON) com status 400")
+    void deveRetornarInvalidRequestParaRespostaHtml() {
+        String html = "<!DOCTYPE html><html><body><h1>Bad Request</h1></body></html>";
+        var response = createResponse(400, html);
+
+        var exception = decoder.decode("POST /envelopes", response);
+
+        assertThat(exception).isInstanceOf(DocuSignIntegrationException.class);
+        var dsEx = (DocuSignIntegrationException) exception;
+        assertThat(dsEx.getDsErrorCode()).isEqualTo("INVALID_REQUEST");
+        assertThat(dsEx.getMessage()).contains("accountId");
+    }
+
+    @Test
+    @DisplayName("deve retornar UNAUTHORIZED para resposta HTML com status 401")
+    void deveRetornarUnauthorizedParaHtmlStatus401() {
+        String html = "<html><body>Unauthorized</body></html>";
+        var response = createResponse(401, html);
+
+        var exception = decoder.decode("GET /envelopes", response);
+
+        assertThat(exception).isInstanceOf(DocuSignIntegrationException.class);
+        var dsEx = (DocuSignIntegrationException) exception;
+        assertThat(dsEx.getDsErrorCode()).isEqualTo("UNAUTHORIZED");
     }
 
     @Test
