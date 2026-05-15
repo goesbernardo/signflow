@@ -2,7 +2,9 @@ package com.signflow.application.port.in;
 
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import com.signflow.domain.command.*;
+import com.signflow.domain.model.AuditEvent;
 import com.signflow.domain.model.Document;
+import com.signflow.domain.model.EmbeddedSigningView;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
@@ -186,4 +188,27 @@ public interface SignatureService {
      * Realiza o soft delete do usuário logado (LGPD - Direito ao esquecimento).
      */
     void deleteMe();
+
+    // ── Embedded Signing ──────────────────────────────────────────────────
+
+    /**
+     * Gera URL de embedded signing para que o signatário assine
+     * diretamente dentro da plataforma do cliente (sem redirecionar para o provider).
+     * A URL expira em 5 minutos.
+     */
+    EmbeddedSigningView createEmbeddedSigningView(
+            String envelopeId, CreateEmbeddedSigningCommand cmd, ProviderSignature provider);
+
+    // ── Download ──────────────────────────────────────────────────────────
+
+    /** Baixa o PDF assinado do provider. */
+    byte[] downloadDocument(String envelopeId, String documentId, ProviderSignature provider);
+
+    /** Baixa o Certificate of Completion (audit trail em PDF) do provider. */
+    byte[] downloadCertificate(String envelopeId, ProviderSignature provider);
+
+    // ── Audit Trail ───────────────────────────────────────────────────────
+
+    /** Retorna o audit trail do provider (IP, device, geolocalização, timestamps). */
+    List<AuditEvent> getAuditEvents(String envelopeId, ProviderSignature provider);
 }

@@ -2,7 +2,9 @@ package com.signflow.infrastructure.provider.docusign;
 
 import com.signflow.application.port.out.ESignatureGateway;
 import com.signflow.domain.command.*;
+import com.signflow.domain.model.AuditEvent;
 import com.signflow.domain.model.Document;
+import com.signflow.domain.model.EmbeddedSigningView;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
@@ -22,7 +24,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -294,6 +299,108 @@ public class DocuSignGateway implements ESignatureGateway {
     private String extractExtension(String filename) {
         if (filename == null || !filename.contains(".")) return "pdf";
         return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+    }
+
+    // ── downloadDocument ─────────────────────────────────────────────────
+
+    @Override
+    @CircuitBreaker(name = "docusign-circuit-breaker", fallbackMethod = "downloadDocumentFallback")
+    public byte[] downloadDocument(String envelopeId, String documentId) {
+        log.info("Baixando documento {} do envelope {} no DocuSign", documentId, envelopeId);
+        return docuSignClient.downloadDocument(envelopeId, documentId);
+    }
+
+    private byte[] downloadDocumentFallback(String envelopeId, String documentId, Throwable t) {
+        log.error("Fallback downloadDocument — DocuSign: {}", t.getMessage());
+        throw translateException(t, "Não foi possível baixar o documento do DocuSign");
+    }
+
+    // ── downloadCertificate ───────────────────────────────────────────────
+
+    @Override
+    @CircuitBreaker(name = "docusign-circuit-breaker", fallbackMethod = "downloadCertificateFallback")
+    public byte[] downloadCertificate(String envelopeId) {
+        log.info("Baixando Certificate of Completion do envelope {} no DocuSign", envelopeId);
+        return docuSignClient.downloadCertificate(envelopeId);
+    }
+
+    private byte[] downloadCertificateFallback(String envelopeId, Throwable t) {
+        log.error("Fallback downloadCertificate — DocuSign: {}", t.getMessage());
+        throw translateException(t, "Não foi possível baixar o Certificate of Completion do DocuSign");
+    }
+
+    // ── createEmbeddedSigningView ─────────────────────────────────────────
+
+    @Override
+    @CircuitBreaker(name = "docusign-circuit-breaker", fallbackMethod = "createEmbeddedSigningViewFallback")
+    public EmbeddedSigningView createEmbeddedSigningView(String envelopeId, CreateEmbeddedSigningCommand cmd) {
+        var request = DocuSignRecipientViewRequestDTO.builder()
+                .authenticationMethod("none")
+                .clientUserId(cmd.clientUserId())
+                .email(cmd.recipientEmail())
+                .userName(cmd.recipientName())
+                .recipientId(cmd.recipientId())
+                .returnUrl(cmd.returnUrl())
+                .pingUrl(cmd.pingUrl())
+                .build();
+
+        log.info("Gerando URL de embedded signing para {} no envelope {}", cmd.recipientEmail(), envelopeId);
+        var response = docuSignClient.createRecipientView(envelopeId, request);
+
+        return EmbeddedSigningView.builder()
+                .signingUrl(response.url())
+                .envelopeId(envelopeId)
+                .recipientEmail(cmd.recipientEmail())
+                .expiresAt(LocalDateTime.now().plusMinutes(5))
+                .build();
+    }
+
+    private EmbeddedSigningView createEmbeddedSigningViewFallback(String envelopeId,
+            CreateEmbeddedSigningCommand cmd, Throwable t) {
+        log.error("Fallback createEmbeddedSigningView — DocuSign: {}", t.getMessage());
+        throw translateException(t, "Não foi possível gerar URL de embedded signing no DocuSign");
+    }
+
+    // ── getAuditEvents ────────────────────────────────────────────────────
+
+    @Override
+    @CircuitBreaker(name = "docusign-circuit-breaker", fallbackMethod = "getAuditEventsFallback")
+    public List<AuditEvent> getAuditEvents(String envelopeId) {
+        log.info("Buscando audit trail do envelope {} no DocuSign", envelopeId);
+        var response = docuSignClient.getAuditEvents(envelopeId);
+        if (response == null || response.auditEvents() == null) return List.of();
+
+        return response.auditEvents().stream()
+                .map(this::toAuditEvent)
+                .toList();
+    }
+
+    private List<AuditEvent> getAuditEventsFallback(String envelopeId, Throwable t) {
+        log.error("Fallback getAuditEvents — DocuSign: {}", t.getMessage());
+        throw translateException(t, "Não foi possível buscar o audit trail no DocuSign");
+    }
+
+    private AuditEvent toAuditEvent(DocuSignAuditEventDTO dto) {
+        Map<String, String> fields = dto.eventFields() == null ? Map.of()
+                : dto.eventFields().stream()
+                    .collect(Collectors.toMap(
+                            DocuSignAuditEventDTO.DocuSignAuditFieldDTO::name,
+                            f -> f.value() != null ? f.value() : "",
+                            (a, b) -> a));
+
+        return AuditEvent.builder()
+                .eventType(fields.get("Action"))
+                .userId(fields.get("UserId"))
+                .userName(fields.get("UserName"))
+                .ipAddress(fields.get("IP"))
+                .deviceType(fields.get("BrowserEnvironment"))
+                .platform(fields.get("Platform"))
+                .latitude(fields.get("Latitude"))
+                .longitude(fields.get("Longitude"))
+                .envelopeStatus(fields.get("EnvelopeStatus"))
+                .signerStatus(fields.get("RecipientStatus"))
+                .occurredAt(mapper.parseLocalDateTime(fields.get("Timestamp")))
+                .build();
     }
 
     // ── Tratamento de erros ───────────────────────────────────────────────

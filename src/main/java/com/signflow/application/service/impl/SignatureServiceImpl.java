@@ -11,7 +11,9 @@ import com.signflow.config.KafkaConfig;
 import com.signflow.domain.command.*;
 import com.signflow.domain.exception.DomainErrorCode;
 import com.signflow.domain.exception.DomainException;
+import com.signflow.domain.model.AuditEvent;
 import com.signflow.domain.model.Document;
+import com.signflow.domain.model.EmbeddedSigningView;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
@@ -629,6 +631,41 @@ public class SignatureServiceImpl implements SignatureService {
             auditLogService.log("DELETE_ME", "USER", originalId, "Usuário marcou sua conta como deletada e dados foram anonimizados");
             log.info("[AUDIT] Usuário {} marcou sua conta como deletada (Direito ao Esquecimento). Dados anonimizados.", originalId);
         });
+    }
+
+    // ── Embedded Signing ──────────────────────────────────────────────────
+
+    @Override
+    public EmbeddedSigningView createEmbeddedSigningView(
+            String envelopeId, CreateEmbeddedSigningCommand cmd, ProviderSignature providerHint) {
+        ESignatureGateway gateway = registry.get(resolveProviderForEnvelope(envelopeId, providerHint));
+        log.info("Gerando embedded signing para envelope {} via {}", envelopeId, gateway.provider());
+        return gateway.createEmbeddedSigningView(envelopeId, cmd);
+    }
+
+    // ── Download ──────────────────────────────────────────────────────────
+
+    @Override
+    public byte[] downloadDocument(String envelopeId, String documentId, ProviderSignature providerHint) {
+        ESignatureGateway gateway = registry.get(resolveProviderForEnvelope(envelopeId, providerHint));
+        log.info("Download documento {} do envelope {} via {}", documentId, envelopeId, gateway.provider());
+        return gateway.downloadDocument(envelopeId, documentId);
+    }
+
+    @Override
+    public byte[] downloadCertificate(String envelopeId, ProviderSignature providerHint) {
+        ESignatureGateway gateway = registry.get(resolveProviderForEnvelope(envelopeId, providerHint));
+        log.info("Download certificate do envelope {} via {}", envelopeId, gateway.provider());
+        return gateway.downloadCertificate(envelopeId);
+    }
+
+    // ── Audit Trail ───────────────────────────────────────────────────────
+
+    @Override
+    public List<AuditEvent> getAuditEvents(String envelopeId, ProviderSignature providerHint) {
+        ESignatureGateway gateway = registry.get(resolveProviderForEnvelope(envelopeId, providerHint));
+        log.info("Buscando audit events do envelope {} via {}", envelopeId, gateway.provider());
+        return gateway.getAuditEvents(envelopeId);
     }
 
     // ── Helpers privados ──────────────────────────────────────────────────

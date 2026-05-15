@@ -3,10 +3,13 @@ package com.signflow.api.controller;
 import com.signflow.api.dto.EnvelopeTimelineResponse;
 import com.signflow.application.port.in.SignatureService;
 import com.signflow.domain.command.AddNotifierCommand;
+import com.signflow.domain.command.CreateEmbeddedSigningCommand;
 import com.signflow.domain.command.CreateFullEnvelopeCommand;
 import com.signflow.domain.command.UpdateDocumentCommand;
 import com.signflow.domain.command.UpdateEnvelopeCommand;
+import com.signflow.domain.model.AuditEvent;
 import com.signflow.domain.model.Document;
+import com.signflow.domain.model.EmbeddedSigningView;
 import com.signflow.domain.model.Envelope;
 import com.signflow.domain.model.Requirement;
 import com.signflow.domain.model.Signer;
@@ -28,7 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -245,5 +250,78 @@ public class SignatureController {
             @PathVariable String externalId) {
         log.info("Recebida requisição de histórico de webhooks para o envelope {}", externalId);
         return ResponseEntity.ok(signatureService.getWebhookDeliveries(externalId));
+    }
+
+    // ── Embedded Signing ──────────────────────────────────────────────────
+
+    @PostMapping("/{envelopeId}/views/signing")
+    @Operation(
+            summary = "Gerar URL de Embedded Signing",
+            description = """
+                    Gera uma URL segura (válida por 5 minutos) para o signatário assinar
+                    o documento diretamente dentro da plataforma do cliente (sem sair para o DocuSign).
+
+                    O cliente deve:
+                    1. Chamar este endpoint para obter a signingUrl
+                    2. Renderizar a signingUrl em um iframe ou redirecionar o usuário
+                    3. Capturar o returnUrl com o parâmetro event= para saber o resultado
+                       (event=signing_complete | decline | session_timeout | ttl_expired)
+
+                    Suportado por: DocuSign
+                    """)
+    public ResponseEntity<EmbeddedSigningView> createEmbeddedSigningView(
+            @RequestHeader(value = "provider", required = false) ProviderSignature provider,
+            @PathVariable String envelopeId,
+            @RequestBody @Valid CreateEmbeddedSigningCommand command) {
+        log.info("Gerando URL de embedded signing para envelope {} no provedor {}", envelopeId, provider);
+        return ResponseEntity.ok(signatureService.createEmbeddedSigningView(envelopeId, command, provider));
+    }
+
+    // ── Download de documento ─────────────────────────────────────────────
+
+    @GetMapping("/{envelopeId}/documents/{documentId}/download")
+    @Operation(
+            summary = "Download do documento assinado (PDF)",
+            description = "Baixa o PDF do documento após assinatura. Retorna o arquivo como stream application/pdf.")
+    public ResponseEntity<byte[]> downloadDocument(
+            @RequestHeader(value = "provider", required = false) ProviderSignature provider,
+            @PathVariable String envelopeId,
+            @PathVariable String documentId) {
+        log.info("Download do documento {} do envelope {} no provedor {}", documentId, envelopeId, provider);
+        byte[] content = signatureService.downloadDocument(envelopeId, documentId, provider);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"documento-" + documentId + ".pdf\"")
+                .body(content);
+    }
+
+    @GetMapping("/{envelopeId}/certificate")
+    @Operation(
+            summary = "Download do Certificate of Completion",
+            description = "Baixa o PDF com o audit trail completo (Certificate of Completion) do envelope.")
+    public ResponseEntity<byte[]> downloadCertificate(
+            @RequestHeader(value = "provider", required = false) ProviderSignature provider,
+            @PathVariable String envelopeId) {
+        log.info("Download do Certificate of Completion do envelope {} no provedor {}", envelopeId, provider);
+        byte[] content = signatureService.downloadCertificate(envelopeId, provider);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"certificate-" + envelopeId + ".pdf\"")
+                .body(content);
+    }
+
+    // ── Audit Trail ───────────────────────────────────────────────────────
+
+    @GetMapping("/{envelopeId}/audit")
+    @Operation(
+            summary = "Audit trail do provider",
+            description = "Retorna os eventos de auditoria do provider (IP, device, geolocalização, timestamps) para compliance jurídico.")
+    public ResponseEntity<List<AuditEvent>> getAuditEvents(
+            @RequestHeader(value = "provider", required = false) ProviderSignature provider,
+            @PathVariable String envelopeId) {
+        log.info("Buscando audit trail do envelope {} no provedor {}", envelopeId, provider);
+        return ResponseEntity.ok(signatureService.getAuditEvents(envelopeId, provider));
     }
 }
